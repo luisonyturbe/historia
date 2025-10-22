@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guía de Estudio de Historia</title>
+    <!-- Carga de Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fuente Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Estilos personalizados */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f7f6; /* Un gris muy claro */
+            color: #333;
+        }
+        /* Estilo para los botones de la página principal */
+        .topic-btn {
+            @apply bg-white text-blue-800 font-bold py-6 px-4 rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 ease-in-out text-center text-lg;
+            border: 1px solid #e0e0e0;
+        }
+        /* Estilo para los botones de opción del quiz */
+        .quiz-option {
+            @apply block w-full text-left bg-white border-2 border-gray-300 p-4 rounded-lg my-3 hover:bg-blue-50 hover:border-blue-500 transition-all duration-200 font-medium;
+        }
+        /* Estilo para la opción seleccionada */
+        .quiz-option.selected {
+            @apply bg-blue-100 border-blue-600 ring-2 ring-blue-500;
+        }
+        /* Estilo para la opción correcta después de responder */
+        .quiz-option.correct {
+            @apply bg-green-100 border-green-500;
+        }
+        /* Estilo para la opción incorrecta después de responder */
+        .quiz-option.incorrect {
+            @apply bg-red-100 border-red-500;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- Contenedor principal de la aplicación -->
+    <div id="app" class="container mx-auto p-4 max-w-5xl">
+        <!-- El contenido se renderizará aquí vía JavaScript -->
+    </div>
+
+    <script>
+        // --- BASE DE DATOS DE CONTENIDO ---
+        // Extraído de los documentos de Word proporcionados
+        const contentData = {
+            "edad-media": {
+                title: "Edad Media",
+                videoUrl: "https://placehold.co/600x400?text=Video+sobre+la+Edad+Media", // Placeholder
+                summary: [
+                    {
+                        title: "Módulo 1: El Corazón de la Economía Medieval",
+                        points: [
+                            "<strong>La Tierra:</strong> Era el corazón de la economía medieval; la vida giraba en torno a la agricultura.",
+                            "<strong>Avances Tecnológicos:</strong> El arado de vertedera y el molino de agua ayudaron a aumentar la producción.",
+                            "<strong>Artesanía y Gremios:</strong> Los artesanos (tejedores, herreros) se agrupaban en gremios para regular la calidad, el precio y la producción."
+                        ]
+                    },
+                    {
+                        title: "Módulo 2: El Sistema Feudal y la Estructura Social",
+                        points: [
+                            "<strong>Feudalismo:</strong> Una red de relaciones personales basada en la lealtad y la posesión de la tierra (feudos).",
+                            "<strong>Señores Feudales:</strong> Dueños de grandes extensiones de tierra, con poder militar y judicial.",
+                            "<strong>Vasallos:</strong> Juraban lealtad a un señor a cambio de protección y tierra.",
+                            "<strong>Siervos:</strong> La gran mayoría, atados a la tierra, trabajaban para el señor a cambio de protección y una parcela."
+                        ]
+                    },
+                    {
+                        title: "Módulo 3: La Cruz, la Espada y los Conflictos Religiosos",
+                        points: [
+                            "<strong>Poder de la Iglesia Católica:</strong> Era el centro de la vida, con inmensa autoridad (incluso sobre reyes), controlando la educación y la moral.",
+                            "<strong>Surgimiento del Islam:</strong> Nueva fe que se extendió por Oriente Medio, norte de África y parte de España.",
+                            "<strong>Las Cruzadas:</strong> Choque de civilizaciones (siglo XI) convocado por el Papa Urbano II para \"liberar\" Tierra Santa."
+                        ]
+                    },
+                    {
+                        title: "Módulo 4: El Contraste de la Vida Diaria",
+                        points: [
+                            "<strong>Vida en los Castillos (Nobleza):</strong> Privilegios, banquetes, torneos y administración de tierras.",
+                            "<strong>Vida en las Aldeas (Campesinos):</strong> Condiciones duras, chozas pequeñas (a menudo compartidas con animales), trabajo de sol a sol."
+                        ]
+                    },
+                    {
+                        title: "Módulo 5: Eventos que Marcaron el Final y el Legado",
+                        points: [
+                            "<strong>La Peste Negra (Siglo XIV):</strong> Pandemia que diezmó a la población y debilitó el sistema feudal.",
+                            "<strong>La Guerra de los Cien Años (1337-1453):</strong> Conflicto entre Inglaterra y Francia que marcó el declive de la caballería tradicional.",
+                            "<strong>Legado:</strong> Cuna de las naciones europeas, profunda influencia religiosa y semilla del Renacimiento."
+                        ]
+                    }
+                ]
+            },
+            "feudalismo": {
+                title: "Feudalismo",
+                videoUrl: "https://placehold.co/600x400?text=Video+sobre+el+Feudalismo", // Placeholder
+                summary: [
+                    {
+                        title: "I. Contexto y Definición",
+                        points: [
+                            "<strong>Definición:</strong> Sistema dominante en Europa medieval (aprox. siglos X al XIII).",
+                            "<strong>Base del Sistema:</strong> Jerarquía social y distribución de la tierra en unidades llamadas feudos.",
+                            "<strong>Raíces:</strong> Sistema señorial romano y reino de los francos (siglo VIII)."
+                        ]
+                    },
+                    {
+                        title: "II. Causas del Surgimiento",
+                        points: [
+                            "<strong>Inseguridad:</strong> Miedo por nuevas invasiones (vikingos, eslavos) en los siglos IX y X.",
+                            "<strong>Debilidad Real:</strong> Reyes no podían garantizar la seguridad tras la caída del imperio Carolingio.",
+                            "<strong>Valor de la Tierra:</strong> Aumento del valor de la tierra por la desaparición del comercio."
+                        ]
+                    },
+                    {
+                        title: "III. Estructura Social (Pirámide Feudal)",
+                        points: [
+                            "<strong>Rey / Monarca:</strong> Cúspide del sistema.",
+                            "<strong>Nobleza / Señores:</strong> Estamento privilegiado, poseía tierras a cambio de servicio militar.",
+                            "<strong>Clero:</strong> Estamento privilegiado, dedicado a la oración, poseía tierras.",
+                            "<strong>Vasallo:</strong> Recibía un feudo a cambio de lealtad y servicio (militar o pago).",
+                            "<strong>Campesinos / Siervos:</strong> Base de la pirámide, no libres, atados a la tierra."
+                        ]
+                    },
+                    {
+                        title: "IV. Relaciones Clave: Señor y Vasallo",
+                        points: [
+                            "<strong>Vínculo Personal:</strong> El señor entregaba un feudo al vasallo por lealtad y servicio.",
+                            "<strong>Homenaje:</strong> Ceremonia donde los nobles juraban fidelidad al rey y se convertían en vasallos.",
+                            "<strong>Servicio a Cambio:</strong> Podía ser militar (caballero) o un pago (dinero o productos)."
+                        ]
+                    },
+                    {
+                        title: "VI. Fin del Feudalismo",
+                        points: [
+                            "Decayó a medida que la sociedad se hizo más compleja.",
+                            "Descenso de la población (Peste Negra).",
+                            "Creciente uso del dinero en lugar de promesas de servicio."
+                        ]
+                    }
+                ]
+            },
+            "iglesia": {
+                title: "La Iglesia en la Edad Media",
+                videoUrl: "https://placehold.co/600x400?text=Video+sobre+la+Iglesia", // Placeholder
+                summary: [
+                    {
+                        title: "I. Contexto y Rol Estructural",
+                        points: [
+                            "<strong>Fuerza Unificadora:</strong> La Iglesia Católica unificó Occidente tras la caída del Imperio Romano.",
+                            "<strong>Jerarquía:</strong> Estructura organizada: Papa -> Arzobispos -> Obispos -> Sacerdotes.",
+                            "<strong>Alianzas Políticas:</strong> Lazos con monarcas germanos (ej. Francos). Creación de Los Estados Pontificios.",
+                            "<strong>Poder Pontificio:</strong> El Papa podía excomulgar a los reyes (dejarlos fuera de la ley)."
+                        ]
+                    },
+                    {
+                        title: "II. Poder Económico",
+                        points: [
+                            "<strong>Riqueza y Tierras:</strong> Recibió vastas tierras de reyes y terratenientes, volviéndose extremadamente rica.",
+                            "<strong>Rol de los Monasterios:</strong> Grandes propietarios de tierras, generaban riqueza con agricultura (vino, cerveza, queso)."
+                        ]
+                    },
+                    {
+                        title: "III. Rol Social y Cultural",
+                        points: [
+                            "<strong>Educación y Conocimiento:</strong> Creación de escuelas monásticas y catedrales. Conservaron conocimientos de Grecia y Roma.",
+                            "<strong>Centros de Bibliotecas:</strong> Los monasterios fueron las primeras bibliotecas de Europa.",
+                            "<strong>Universidades:</strong> De los monasterios surgieron universidades medievales (Bolonia, París, Oxford).",
+                            "<strong>Órdenes Religiosas:</strong> Franciscanos (pobreza, ayuda a pobres), Dominicos (enseñanza), Cistercienses (agricultura)."
+                        ]
+                    }
+                ]
+            },
+            "cruzadas": {
+                title: "Las Cruzadas",
+                videoUrl: "https://placehold.co/600x400?text=Video+sobre+Las+Cruzadas", // Placeholder
+                summary: [
+                    {
+                        title: "I. Definición y Contexto Histórico",
+                        points: [
+                            "<strong>Definición:</strong> Un peregrinaje armado, mezcla de fe y guerra.",
+                            "<strong>Inicio:</strong> 1095, convocadas por el Papa Urbano II.",
+                            "<strong>Símbolo:</strong> Una cruz roja cosida en la capa.",
+                            "<strong>Objetivo Primario:</strong> Rescatar los Lugares Santos y Jerusalén.",
+                            "<strong>Ocupación Musulmana:</strong> Jerusalén había sido tomada por los turcos selyúcidas en 1070."
+                        ]
+                    },
+                    {
+                        title: "II. Causas y Motivaciones",
+                        points: [
+                            "<strong>Llamado del Papa:</strong> Urbano II convocó a los cristianos.",
+                            "<strong>Petición de Auxilio:</strong> El emperador bizantino Alejo I Comneno pidió ayuda.",
+                            "<strong>Incentivo Religioso:</strong> Promesa del perdón de los pecados y salvación asegurada.",
+                            "<strong>Motivaciones Diversas:</strong> Fe, búsqueda de riquezas, tierras, fama, o escapar de la pobreza."
+                        ]
+                    },
+                    {
+                        title: "III. Expediciones Clave",
+                        points: [
+                            "<strong>Primera Cruzada (1096):</strong> Conquistó Jerusalén en 1099 y fundó reinos cristianos.",
+                            "<strong>Batalla de Hattin (1187):</strong> Saladino (Sultán) unió a los musulmanes y recuperó Jerusalén.",
+                            "<strong>Tercera Cruzada (1189-1192):</strong> Liderada por Ricardo Corazón de León. Terminó en tregua con Saladino.",
+                            "<strong>Cuarta Cruzada (1204):</strong> Saquearon Constantinopla, desviando su objetivo.",
+                            "<strong>Fin (1291):</strong> Caída de San Juan de Acre, fin de los reinos cristianos en Oriente."
+                        ]
+                    },
+                    {
+                        title: "IV. Consecuencias y Legado",
+                        points: [
+                            "<strong>Fracaso Militar:</strong> La mayoría de las expediciones fracasaron.",
+                            "<strong>Consolidación Musulmana:</strong> Líderes como Saladino unieron al mundo musulmán.",
+                            "<strong>Cambios en Europa:</strong> Contacto con Oriente trajo nuevas rutas comerciales, ideas, alimentos y técnicas."
+                        ]
+                    }
+                ]
+            },
+            "estado-moderno": {
+                title: "Estado Moderno y Mercantilismo",
+                videoUrl: "https://placehold.co/600x400?text=Video+sobre+el+Estado+Moderno", // Placeholder
+                summary: [
+                    {
+                        title: "I. Surgimiento y Contexto",
+                        points: [
+                            "<strong>Periodo:</strong> Siglos XV y XVI.",
+                            "<strong>Causa Principal:</strong> Los monarcas capitalizaron la crisis del feudalismo para centralizar su autoridad.",
+                            "<strong>Impulso Cultural:</strong> El Renacimiento transformó las ideas de poder."
+                        ]
+                    },
+                    {
+                        title: "II. Características del Estado Moderno",
+                        points: [
+                            "<strong>Centralización del Poder:</strong> Un gobierno centralizado con control sobre el territorio.",
+                            "<strong>Territorio Definido:</strong> Fronteras claras para la soberanía.",
+                            "<strong>Legitimación:</strong> Poder legitimado por el ejército y el derecho divino (en monarquías absolutas).",
+                            "<strong>Ejército Nacional:</strong> Profesional y permanente.",
+                            "<strong>Diplomacia:</strong> Búsqueda de relaciones internacionales."
+                        ]
+                    },
+                    {
+                        title: "III. Papel de la Burguesía",
+                        points: [
+                            "<strong>Ascenso y Apoyo:</strong> Clase social clave que apoyó la centralización del poder real.",
+                            "<strong>Motor de Crecimiento:</strong> Impulsada por la industria y el comercio.",
+                            "<strong>Influencia:</strong> Buscó influir en decisiones políticas y económicas."
+                        ]
+                    },
+                    {
+                        title: "V. Mercantilismo: La Doctrina Económica",
+                        points: [
+                            "<strong>Definición:</strong> Políticas económicas para fortalecer al Estado mediante el control del comercio.",
+                            "<strong>Riqueza Central:</strong> Acumulación de metales preciosos (oro y plata).",
+                            "<strong>Características:</strong> Intervención estatal, maximizar exportaciones, creación de impuestos."
+                        ]
+                    }
+                ]
+            },
+            "renacimiento": {
+                title: "El Renacimiento",
+                videoUrl: "https://placehold.co/600x400?text=Video+sobre+el+Renacimiento", // Placeholder
+                summary: [
+                    {
+                        title: "I. Contexto Histórico y Filosófico",
+                        points: [
+                            "<strong>Periodo:</strong> Siglos XIV al XVII. Transición de la Edad Media a la Edad Moderna.",
+                            "<strong>Origen:</strong> Ciudades italianas (Florencia, Venecia, Roma).",
+                            "<strong>Financiamiento:</strong> Mercaderes y banqueros (ej. familia Médici).",
+                            "<strong>Ideal Clásico:</strong> Renacer de los ideales de Grecia y Roma.",
+                            "<strong>Humanismo (Idea Central):</strong> Puso al ser humano en el centro del conocimiento, valorando su dignidad y potencial."
+                        ]
+                    },
+                    {
+                        title: "II. Arte Renacentista",
+                        points: [
+                            "<strong>Enfoque:</strong> Búsqueda del realismo y la belleza.",
+                            "<strong>Leonardo da Vinci:</strong> \"Mona Lisa\", \"La Última Cena\". Usó el sfumato.",
+                            "<strong>Miguel Ángel:</strong> \"David\", frescos de la Capilla Sixtina.",
+                            "<strong>Rafael Sanzio:</strong> \"La Escuela de Atenas\", representó la armonía."
+                        ]
+                    },
+                    {
+                        title: "III. Ciencia y Descubrimientos",
+                        points: [
+                            "<strong>Enfoque:</strong> Basado en la observación, la experiencia y la razón.",
+                            "<strong>Nicolás Copérnico:</strong> Formuló la teoría heliocéntrica (la Tierra gira alrededor del Sol).",
+                            "<strong>Galileo Galilei:</strong> Padre de la ciencia experimental, defendió el heliocentrismo y tuvo conflictos con la Iglesia.",
+                            "<strong>Andreas Vesalio:</strong> Revolucionó la anatomía mediante disecciones directas.",
+                            "<strong>Johannes Gutenberg:</strong> Inventor de la imprenta de tipos móviles, permitió la difusión masiva del conocimiento."
+                        ]
+                    },
+                    {
+                        title: "IV. Pensamiento y Literatura",
+                        points: [
+                            "<strong>Nicolás Maquiavelo:</strong> Analizó el poder de forma pragmática (\"El Príncipe\").",
+                            "<strong>William Shakespeare:</strong> Profundizó en la psicología humana (\"Hamlet\", \"Romeo y Julieta\").",
+                            "<strong>Miguel de Cervantes:</strong> Autor de \"Don Quijote de la Mancha\", considerada la primera novela moderna."
+                        ]
+                    }
+                ]
+            }
+        };
+
+        // --- BANCO DE PREGUNTAS ---
+        const quizData = {
+            "edad-media": [
+                { q: "¿Cuál era considerado el 'corazón' de la economía medieval?", o: ["La tierra", "El comercio", "Los gremios", "La Iglesia"], a: "La tierra" },
+                { q: "¿Cómo se llamaban los grupos de artesanos que regulaban la calidad y el precio en la Edad Media?", o: ["Gremios", "Sindicatos", "Feudos", "Cofradías"], a: "Gremios" },
+                { q: "El sistema social basado en la lealtad y la posesión de la tierra se llamaba:", o: ["Feudalismo", "Capitalismo", "Mercantilismo", "Humanismo"], a: "Feudalismo" },
+                { q: "¿Quiénes eran la gran mayoría de la población, atados a la tierra del señor?", o: ["Siervos", "Vasallos", "Nobles", "Clérigos"], a: "Siervos" },
+                { q: "¿Qué institución tenía una autoridad inmensa, incluso por encima de los reyes, en la Edad Media?", o: ["La Iglesia Católica", "El gremio de comerciantes", "El ejército real", "La universidad"], a: "La Iglesia Católica" },
+                { q: "¿Quién convocó la Primera Cruzada a finales del siglo XI?", o: ["El Papa Urbano II", "El Rey Ricardo Corazón de León", "Saladino", "El Emperador Alejo I"], a: "El Papa Urbano II" },
+                { q: "La vida de la nobleza en los castillos incluía...", o: ["Banquetes y torneos", "Trabajar de sol a sol", "Pagar impuestos al señor", "Vivir en chozas de paja"], a: "Banquetes y torneos" },
+                { q: "¿Qué devastadora pandemia debilitó el sistema feudal en el siglo XIV?", o: ["La Peste Negra", "La Gripe Española", "La Viruela", "La Guerra de los Cien Años"], a: "La Peste Negra" },
+                { q: "El conflicto entre Inglaterra y Francia (1337-1453) que marcó el fin de la caballería tradicional fue:", o: ["La Guerra de los Cien Años", "Las Cruzadas", "La Guerra de las Rosas", "La Batalla de Hattin"], a: "La Guerra de los Cien Años" },
+                { q: "¿Qué avances tecnológicos ayudaron a aumentar la producción agrícola medieval?", o: ["Arado de vertedera y molino de agua", "La imprenta y el telescopio", "El barco de vapor y el tren", "La pólvora y el cañón"], a: "Arado de vertedera y molino de agua" }
+            ],
+            "feudalismo": [
+                { q: "El feudalismo fue el sistema dominante en Europa aproximadamente entre los siglos...", o: ["X al XIII", "V al VIII", "XV al XVI", "I al IV"], a: "X al XIII" },
+                { q: "Las unidades de tierra distribuidas en el sistema feudal se llamaban:", o: ["Feudos", "Beneficios", "Condados", "Reinos"], a: "Feudos" },
+                { q: "Una de las causas principales del surgimiento del feudalismo fue:", o: ["La inseguridad por las invasiones (vikingos, eslavos)", "El auge del comercio", "El poder absoluto del rey", "La invención de la imprenta"], a: "La inseguridad por las invasiones (vikingos, eslavos)" },
+                { q: "¿Quiénes estaban en la base de la pirámide feudal, atados a la tierra y sin libertad?", o: ["Campesinos / Siervos", "Vasallos", "Caballeros", "Clero bajo"], a: "Campesinos / Siervos" },
+                { q: "La ceremonia por la cual los nobles juraban fidelidad al rey se llamaba:", o: ["Homenaje", "Investidura", "Coronación", "Vasallaje"], a: "Homenaje" },
+                { q: "El servicio que un vasallo debía a su señor podía ser militar o...", o: ["Un pago en dinero o productos", "Enseñar en la universidad", "Copiar libros en el monasterio", "Construir catedrales"], a: "Un pago en dinero o productos" },
+                { q: "¿Quiénes vivían en monasterios dedicados a la oración, el estudio y la copia de libros?", o: ["El Clero (monjes)", "Los Señores feudales", "Los Siervos", "Los Artesanos"], a: "El Clero (monjes)" },
+                { q: "Una causa del fin del feudalismo fue:", o: ["El creciente uso del dinero", "El fortalecimiento de los señores feudales", "El aislamiento de las aldeas", "El éxito de las Cruzadas"], a: "El creciente uso del dinero" },
+                { q: "¿Qué estamento privilegiado poseía tierras a cambio de servicio militar?", o: ["Nobleza / Señores", "Clero", "Siervos", "Artesanos"], a: "Nobleza / Señores" },
+                { q: "El sistema feudal tiene sus raíces en el sistema señorial romano y en el reino de los...", o: ["Francos", "Vikingos", "Eslavos", "Bizantinos"], a: "Francos" }
+            ],
+            "iglesia": [
+                { q: "¿Qué institución se convirtió en la 'fuerza unificadora de Occidente' tras la caída de Roma?", o: ["La Iglesia Católica", "El Imperio Carolingio", "Los gremios de artesanos", "Las universidades"], a: "La Iglesia Católica" },
+                { q: "¿Quién era el líder máximo de la Iglesia Católica, con poder espiritual y político?", o: ["El Papa", "El Arzobispo", "El Rey", "El Emperador"], a: "El Papa" },
+                { q: "El poder del Papa era tal que podía... a los reyes, dejándolos fuera de la ley.", o: ["Excomulgar", "Coronar", "Bautizar", "Absolver"], a: "Excomulgar" },
+                { q: "Los territorios bajo el gobierno político directo del Papa se conocieron como:", o: ["Los Estados Pontificios", "El Sacro Imperio Romano", "El Reino Franco", "La Santa Sede"], a: "Los Estados Pontificios" },
+                { q: "Gran parte de la riqueza económica de la Iglesia provenía de:", o: ["La posesión de vastas tierras", "El comercio de especias", "Los botines de guerra", "La industria textil"], a: "La posesión de vastas tierras" },
+                { q: "Los primeros centros de bibliotecas y educación en Europa medieval fueron:", o: ["Los monasterios", "Los castillos", "Los ayuntamientos", "Los palacios reales"], a: "Los monasterios" },
+                { q: "¿De dónde surgieron las primeras universidades medievales como Bolonia, París y Oxford?", o: ["De las escuelas monásticas y catedrales", "De los gremios de maestros", "De la iniciativa de los reyes", "De los castillos de la nobleza"], a: "De las escuelas monásticas y catedrales" },
+                { q: "¿Qué orden religiosa se dedicaba a la enseñanza y a combatir las herejías?", o: ["Dominicos", "Franciscanos", "Cistercienses", "Benedictinos"], a: "Dominicos" },
+                { q: "¿Qué orden religiosa vivía en pobreza y ayudaba a los pobres en las ciudades?", o: ["Franciscanos", "Dominicos", "Cistercienses", "Agustinos"], a: "Franciscanos" },
+                { q: "Los monjes conservaron muchos conocimientos de:", o: ["Grecia y Roma", "Egipto y Mesopotamia", "China e India", "Los vikingos"], a: "Grecia y Roma" }
+            ],
+            "cruzadas": [
+                { q: "¿En qué año comenzaron Las Cruzadas?", o: ["1095", "1070", "1187", "1291"], a: "1095" },
+                { q: "¿Quién convocó a los cristianos a marchar hacia Jerusalén en la Primera Cruzada?", o: ["El Papa Urbano II", "Saladino", "Alejo I Comneno", "Ricardo Corazón de León"], a: "El Papa Urbano II" },
+                { q: "¿Cuál era el objetivo primario de Las Cruzadas?", o: ["Rescatar Jerusalén y los Lugares Santos", "Conquistar Constantinopla", "Establecer nuevas rutas comerciales", "Luchar contra los vikingos"], a: "Rescatar Jerusalén y los Lugares Santos" },
+                { q: "Jerusalén había sido tomada en 1070 por los...", o: ["Turcos selyúcidas", "Bizantinos", "Francos", "Vikingos"], a: "Turcos selyúcidas" },
+                { q: "¿Qué incentivo religioso se prometía a los cruzados?", o: ["El perdón de los pecados y la salvación", "Tierras y riquezas", "Fama y honor", "Un título nobiliario"], a: "El perdón de los pecados y la salvación" },
+                { q: "¿Qué líder musulmán unió a su pueblo y recuperó Jerusalén en 1187?", o: ["Saladino", "Urbano II", "Alejo I", "Godofredo de Bouillón"], a: "Saladino" },
+                { q: "¿Qué rey inglés lideró la Tercera Cruzada y firmó una tregua con Saladino?", o: ["Ricardo Corazón de León", "Luis IX de Francia", "Federico Barbarroja", "Felipe Augusto"], a: "Ricardo Corazón de León" },
+                { q: "La Cuarta Cruzada es famosa por desviarse y saquear la ciudad cristiana de:", o: ["Constantinopla", "Jerusalén", "Roma", "Antioquía"], a: "Constantinopla" },
+                { q: "¿Qué marcó el fin de los reinos cristianos en Oriente en 1291?", o: ["La caída de San Juan de Acre", "La tregua de Saladino", "La Peste Negra", "El saqueo de Constantinopla"], a: "La caída de San Juan de Acre" },
+                { q: "Una consecuencia duradera de Las Cruzadas en Europa fue:", o: ["El conocimiento de nuevas rutas comerciales e ideas de Oriente", "La conquista permanente de Tierra Santa", "La unificación de la Iglesia Católica y Ortodoxa", "El fin del sistema feudal"], a: "El conocimiento de nuevas rutas comerciales e ideas de Oriente" }
+            ],
+            "estado-moderno": [
+                { q: "¿En qué siglos se formó principalmente el Estado moderno?", o: ["Siglos XV y XVI", "Siglos X y XI", "Siglos V y VI", "Siglos XVIII y XIX"], a: "Siglos XV y XVI" },
+                { q: "La causa principal del surgimiento del Estado moderno fue:", o: ["La crisis del feudalismo, que los reyes aprovecharon", "El éxito de las Cruzadas", "La expansión del Islam", "El poder absoluto de la Iglesia"], a: "La crisis del feudalismo, que los reyes aprovecharon" },
+                { q: "Una característica clave del Estado moderno es:", o: ["La centralización del poder en un gobierno", "El poder fragmentado de los señores feudales", "La ausencia de fronteras definidas", "Un ejército de vasallos leales"], a: "La centralización del poder en un gobierno" },
+                { q: "En las monarquías absolutas, el poder del rey se legitimaba por:", o: ["El derecho divino", "Una votación popular", "La aprobación del Papa", "La fuerza militar únicamente"], a: "El derecho divino" },
+                { q: "¿Qué clase social emergente apoyó la centralización del poder real?", o: ["La burguesía", "El campesinado", "El clero", "La baja nobleza"], a: "La burguesía" },
+                { q: "¿Qué doctrina económica buscaba fortalecer al Estado acumulando metales preciosos (oro y plata)?", o: ["Mercantilismo", "Feudalismo", "Capitalismo", "Humanismo"], a: "Mercantilismo" },
+                { q: "El mercantilismo promovía que el Estado...", o: ["Interviniera y regulara el comercio", "No interviniera en la economía", "Distribuyera la tierra en feudos", "Financiara las artes y las ciencias"], a: "Interviniera y regulara el comercio" },
+                { q: "El objetivo principal del mercantilismo era maximizar las...", o: ["Exportaciones", "Importaciones", "Guerras", "Alianzas religiosas"], a: "Exportaciones" },
+                { q: "El Estado moderno se caracteriza por tener un ejército...", o: ["Nacional, profesional y permanente", "Compuesto por señores feudales y sus vasallos", "Temporal, solo en caso de guerra", "Controlado por la Iglesia"], a: "Nacional, profesional y permanente" },
+                { q: "¿Qué impulso cultural ayudó a transformar las ideas de poder y gobernanza?", o: ["El Renacimiento", "El Gótico", "El Escolasticismo", "Las Cruzadas"], a: "El Renacimiento" }
+            ],
+            "renacimiento": [
+                { q: "¿Qué movimiento intelectual y cultural del Renacimiento puso al ser humano en el centro del conocimiento?", o: ["Humanismo", "Mercantilismo", "Feudalismo", "Escolasticismo"], a: "Humanismo" },
+                { q: "El Renacimiento se originó principalmente en las ciudades de:", o: ["Italia (Florencia, Roma)", "España (Madrid, Sevilla)", "Inglaterra (Londres, York)", "Francia (París, Lyon)"], a: "Italia (Florencia, Roma)" },
+                { q: "¿Qué familia de mercaderes y banqueros fue famosa por financiar el arte en Florencia?", o: ["Los Médici", "Los Borgia", "Los Sforza", "Los Comneno"], a: "Los Médici" },
+                { q: "¿Quién es el artista renacentista autor de la 'Mona Lisa' y 'La Última Cena'?", o: ["Leonardo da Vinci", "Miguel Ángel", "Rafael Sanzio", "Donatello"], a: "Leonardo da Vinci" },
+                { q: "¿Qué artista esculpió el 'David' y pintó los frescos de la Capilla Sixtina?", o: ["Miguel Ángel", "Leonardo da Vinci", "Rafael Sanzio", "Tiziano"], a: "Miguel Ángel" },
+                { q: "¿Qué astrónomo formuló la teoría heliocéntrica (la Tierra gira alrededor del Sol)?", o: ["Nicolás Copérnico", "Galileo Galilei", "Andreas Vesalio", "Ptolomeo"], a: "Nicolás Copérnico" },
+                { q: "¿Quién es considerado el 'padre de la ciencia experimental' y defendió el heliocentrismo con un telescopio?", o: ["Galileo Galilei", "Nicolás Copérnico", "Johannes Gutenberg", "Nicolás Maquiavelo"], a: "Galileo Galilei" },
+                { q: "¿Qué invento de Johannes Gutenberg permitió la difusión masiva del conocimiento?", o: ["La imprenta de tipos móviles", "El telescopio", "El microscopio", "El arado de vertedera"], a: "La imprenta de tipos móviles" },
+                { q: "¿Qué autor analizó el poder de forma pragmática en su obra 'El Príncipe'?", o: ["Nicolás Maquiavelo", "William Shakespeare", "Miguel de Cervantes", "Dante Alighieri"], a: "Nicolás Maquiavelo" },
+                { q: "Autor de 'Don Quijote de la Mancha', considerada la primera novela moderna:", o: ["Miguel de Cervantes", "William Shakespeare", "Nicolás Maquiavelo", "Petrarca"], a: "Miguel de Cervantes" }
+            ]
+        };
+
+        // --- LÓGICA DE LA APLICACIÓN ---
+
+        const app = document.getElementById('app');
+
+        // Estado de la aplicación
+        let currentQuizQuestions = [];
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let incorrectAnswers = [];
+        let quizActive = false; // Para evitar doble clic en opciones
+
+        /**
+         * Función para barajar un array (Algoritmo Fisher-Yates)
+         * @param {Array} array - El array a barajar
+         * @returns {Array} - El array barajado
+         */
+        function shuffleArray(array) {
+            let currentIndex = array.length, randomIndex;
+            // Mientras queden elementos por barajar
+            while (currentIndex != 0) {
+                // Elegir un elemento restante
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                // E intercambiarlo con el elemento actual
+                [array[currentIndex], array[randomIndex]] = [
+                    array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        /**
+         * Renderiza la página de inicio
+         */
+        function renderHome() {
+            app.innerHTML = `
+                <header class="text-center my-8 md:my-12">
+                    <h1 class="text-4xl md:text-5xl font-bold text-blue-900">Guía de Estudio de Historia</h1>
+                </header>
+                <main>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+                        <button class="topic-btn" data-topic="edad-media">
+                            Edad Media
+                        </button>
+                        <button class="topic-btn" data-topic="feudalismo">
+                            Feudalismo
+                        </button>
+                        <button class="topic-btn" data-topic="iglesia">
+                            La Iglesia
+                        </button>
+                        <button class="topic-btn" data-topic="cruzadas">
+                            Las Cruzadas
+                        </button>
+                        <button class="topic-btn" data-topic="estado-moderno">
+                            Estado Moderno
+                        </button>
+                        <button class="topic-btn" data-topic="renacimiento">
+                            Renacimiento
+                        </button>
+                    </div>
+                    <div class="text-center mt-10">
+                        <button id="general-quiz" class="bg-green-700 text-white font-bold py-4 px-8 rounded-lg shadow-lg hover:bg-green-800 transition-all text-xl">
+                            Iniciar Quiz General
+                        </button>
+                    </div>
+                </main>
+            `;
+        }
+
+        /**
+         * Renderiza la página de una sección de estudio
+         * @param {string} topicKey - La clave del tema (ej. "edad-media")
+         */
+        function renderSection(topicKey) {
+            const data = contentData[topicKey];
+            if (!data) {
+                console.error("Tema no encontrado:", topicKey);
+                renderHome();
+                return;
+            }
+
+            let summaryHtml = data.summary.map(module => `
+                <div class="bg-white shadow-lg rounded-lg p-6 my-6">
+                    <h3 class="text-2xl font-bold text-blue-800 mb-4">${module.title}</h3>
+                    <ul class="list-disc list-inside ml-4 text-gray-700 space-y-3">
+                        ${module.points.map(point => `<li>${point}</li>`).join('')}
+                    </ul>
+                </div>
+            `).join('');
+
+            app.innerHTML = `
+                <header class="flex justify-between items-center mb-6">
+                    <button id="back-home" class="bg-gray-500 text-white py-2 px-5 rounded-lg hover:bg-gray-600 transition-all font-medium">
+                        &larr; Volver
+                    </button>
+                    <a href="${data.videoUrl}" target="_blank" class="bg-red-600 text-white py-2 px-5 rounded-lg hover:bg-red-700 transition-all font-medium">
+                        Ver Video Informativo
+                    </a>
+                </header>
+                <main>
+                    <h2 class="text-4xl font-bold text-gray-800 mb-6">${data.title}</h2>
+                    ${summaryHtml}
+                    <div class="text-center mt-10 mb-6">
+                        <button id="start-section-quiz" data-topic="${topicKey}" class="bg-green-700 text-white font-bold py-4 px-8 rounded-lg shadow-lg hover:bg-green-800 transition-all text-xl">
+                            Iniciar Quiz de ${data.title}
+                        </button>
+                    </div>
+                </main>
+            `;
+        }
+
+        /**
+         * Inicia el quiz, preparando las preguntas
+         * @param {string} topicKey - La clave del tema o "general"
+         */
+        function startQuiz(topicKey) {
+            currentQuestionIndex = 0;
+            score = 0;
+            incorrectAnswers = [];
+            quizActive = true; // El quiz comienza
+
+            if (topicKey === 'general') {
+                // Combina todas las preguntas de todos los temas
+                let allQuestions = Object.values(quizData).flat();
+                // Baraja y toma 20
+                currentQuizQuestions = shuffleArray(allQuestions).slice(0, 20);
+            } else {
+                let topicQuestions = quizData[topicKey] || [];
+                // Baraja y toma 10
+                currentQuizQuestions = shuffleArray(topicQuestions).slice(0, 10);
+            }
+
+            if (currentQuizQuestions.length === 0) {
+                console.error("No se encontraron preguntas para:", topicKey);
+                renderHome();
+                return;
+            }
+
+            renderQuestion();
+        }
+
+        /**
+         * Renderiza la pregunta actual del quiz
+         */
+        function renderQuestion() {
+            if (currentQuestionIndex >= currentQuizQuestions.length) {
+                renderResults();
+                return;
+            }
+
+            quizActive = true; // Activa la pregunta
+            const q = currentQuizQuestions[currentQuestionIndex];
+            
+            // Barajamos las opciones para que no aparezcan siempre en el mismo orden
+            const shuffledOptions = shuffleArray([...q.o]);
+
+            let optionsHtml = shuffledOptions.map(option => `
+                <button class="quiz-option" data-answer="${option}">
+                    ${option}
+                </button>
+            `).join('');
+
+            app.innerHTML = `
+                <div class="bg-white p-6 md:p-8 rounded-lg shadow-xl max-w-3xl mx-auto">
+                    <header class="mb-6">
+                        <p class="text-gray-600 font-medium">
+                            Pregunta ${currentQuestionIndex + 1} de ${currentQuizQuestions.length}
+                        </p>
+                        <h2 class="text-2xl md:text-3xl font-bold text-gray-800 mt-2">${q.q}</h2>
+                    </header>
+                    <main>
+                        ${optionsHtml}
+                    </main>
+                    <footer class="mt-6 text-center">
+                        <button id="quit-quiz" class="text-sm text-gray-500 hover:text-red-600">Abandonar Quiz</button>
+                    </footer>
+                </div>
+            `;
+        }
+
+        /**
+         * Maneja la selección de una respuesta
+         * @param {string} selectedOption - El texto de la opción seleccionada
+         */
+        function handleAnswer(selectedOption) {
+            if (!quizActive) return; // Evita doble clic
+            quizActive = false; // Desactiva hasta la siguiente pregunta
+
+            const q = currentQuizQuestions[currentQuestionIndex];
+            const correctAnswer = q.a;
+
+            const allOptions = document.querySelectorAll('.quiz-option');
+            let selectedButton = null;
+
+            allOptions.forEach(button => {
+                const answer = button.dataset.answer;
+                if (answer === selectedOption) {
+                    selectedButton = button;
+                }
+                // Marca la correcta
+                if (answer === correctAnswer) {
+                    button.classList.add('correct');
+                }
+            });
+
+            if (selectedOption === correctAnswer) {
+                score++;
+                selectedButton.classList.add('correct'); // Ya la tiene, pero por si acaso
+            } else {
+                // Guardamos la información del error
+                incorrectAnswers.push({
+                    question: q.q,
+                    selected: selectedOption,
+                    correct: correctAnswer
+                });
+                if (selectedButton) {
+                    selectedButton.classList.add('incorrect');
+                }
+            }
+
+            // Pausa de 1.5 segundos para ver el resultado antes de pasar
+            setTimeout(() => {
+                currentQuestionIndex++;
+                renderQuestion();
+            }, 1500);
+        }
+
+        /**
+         * Renderiza la pantalla de resultados
+         */
+        function renderResults() {
+            let incorrectHtml = '';
+            if (incorrectAnswers.length > 0) {
+                incorrectHtml = '<h3 class="text-2xl font-bold text-gray-800 mb-4">Respuestas incorrectas:</h3>';
+                incorrectHtml += '<div class="space-y-6">';
+                incorrectHtml += incorrectAnswers.map(item => `
+                    <div class="bg-red-50 border border-red-200 p-4 rounded-lg">
+                        <p class="font-bold text-red-900">${item.question}</p>
+                        <p class="text-sm text-red-700 mt-2">Tu respuesta: <span class="font-semibold">${item.selected}</span></p>
+                        <p class="text-sm text-green-700">Respuesta correcta: <span class="font-semibold">${item.correct}</span></p>
+                    </div>
+                `).join('');
+                incorrectHtml += '</div>';
+            } else {
+                incorrectHtml = '<p class="text-lg text-green-700 font-semibold">¡Felicidades! ¡Todas las respuestas fueron correctas!</p>';
+            }
+
+            const percentage = Math.round((score / currentQuizQuestions.length) * 100);
+            let resultColor = 'text-green-700';
+            if (percentage < 80) resultColor = 'text-yellow-600';
+            if (percentage < 60) resultColor = 'text-red-700';
+
+            app.innerHTML = `
+                <div class="bg-white p-6 md:p-10 rounded-lg shadow-xl text-center max-w-3xl mx-auto">
+                    <h2 class="text-4xl font-bold text-gray-800 mb-4">Quiz Terminado</h2>
+                    <p class="text-2xl text-gray-600 mb-6">Tu resultado:</p>
+                    <p class="text-7xl font-bold ${resultColor} mb-8">
+                        ${score} / ${currentQuizQuestions.length}
+                    </p>
+                    <div class="text-left my-10">
+                        ${incorrectHtml}
+                    </div>
+                    <button id="back-home" class="bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-blue-800 transition-all text-xl">
+                        Volver al Inicio
+                    </button>
+                </div>
+            `;
+        }
+
+        // --- MANEJADOR DE EVENTOS PRINCIPAL (DELEGACIÓN) ---
+
+        app.addEventListener('click', e => {
+            // Botón para ir a una sección de tema
+            const topicBtn = e.target.closest('.topic-btn');
+            if (topicBtn) {
+                const topicKey = topicBtn.dataset.topic;
+                renderSection(topicKey);
+                return;
+            }
+
+            // Botón para volver al inicio
+            if (e.target.closest('#back-home')) {
+                renderHome();
+                return;
+            }
+
+            // Botón para iniciar quiz general
+            if (e.target.closest('#general-quiz')) {
+                startQuiz('general');
+                return;
+            }
+
+            // Botón para iniciar quiz de sección
+            const sectionQuizBtn = e.target.closest('#start-section-quiz');
+            if (sectionQuizBtn) {
+                const topicKey = sectionQuizBtn.dataset.topic;
+                startQuiz(topicKey);
+                return;
+            }
+
+            // Botón de opción de respuesta en un quiz
+            const quizOption = e.target.closest('.quiz-option');
+            if (quizOption && quizActive) { // Solo si el quiz está activo
+                handleAnswer(quizOption.dataset.answer);
+                return;
+            }
+            
+            // Botón para abandonar el quiz
+            if (e.target.closest('#quit-quiz')) {
+                // Aquí podrías poner un modal de confirmación, pero por simplicidad
+                // volvemos al inicio.
+                renderHome();
+                return;
+            }
+        });
+
+        // --- INICIAR LA APLICACIÓN ---
+        renderHome();
+
+    </script>
+</body>
+</html>
+
+
+
+
