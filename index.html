@@ -19,7 +19,7 @@
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
         .quiz-option-btn {
-            transition: background-color 0.2s, transform 0.2s, border-color 0.2s, box-shadow 0.2s; /* Añadido border-color y box-shadow */
+            transition: background-color 0.2s, transform 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s; /* Añadido opacity */
         }
         .quiz-option-btn:not(:disabled):hover {
             transform: scale(1.02);
@@ -100,6 +100,29 @@
             border-color: #4f46e5; /* border-indigo-600 */
             background-color: #e0e7ff; /* bg-indigo-100 */
         }
+        /* Estilo para el reproductor de video */
+        .prose-custom video {
+            width: 100%;
+            max-width: 720px; /* Limitar ancho máximo si se desea */
+            margin-left: auto;
+            margin-right: auto;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 2rem; /* Espacio después del video */
+        }
+         /* Estilo para botón de carga TTS */
+        .tts-loading-spinner {
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            width: 1.25rem; /* Ajusta tamaño */
+            height: 1.25rem; /* Ajusta tamaño */
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body class="text-gray-800">
@@ -108,7 +131,73 @@
         <!-- Las páginas se renderizarán aquí -->
     </div>
 
+    <!-- Contenedor para el reproductor de audio TTS -->
+    <div id="tts-audio-player" class="fixed bottom-20 right-5 z-10" style="display: none;"></div>
+
     <script>
+        // --- Funciones Auxiliares para Audio ---
+        function base64ToArrayBuffer(base64) {
+            const binaryString = window.atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        function pcmToWav(pcmData, sampleRate, numChannels = 1, bitsPerSample = 16) {
+            const blockAlign = numChannels * bitsPerSample / 8;
+            const byteRate = sampleRate * blockAlign;
+            const dataSize = pcmData.length * (bitsPerSample / 8);
+            const buffer = new ArrayBuffer(44 + dataSize); // 44 bytes para el header WAV
+            const view = new DataView(buffer);
+
+            // RIFF chunk descriptor
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + dataSize, true); // ChunkSize
+            writeString(view, 8, 'WAVE');
+
+            // fmt sub-chunk
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true); // Subchunk1Size (16 for PCM)
+            view.setUint16(20, 1, true); // AudioFormat (1 for PCM)
+            view.setUint16(22, numChannels, true); // NumChannels
+            view.setUint32(24, sampleRate, true); // SampleRate
+            view.setUint32(28, byteRate, true); // ByteRate
+            view.setUint16(32, blockAlign, true); // BlockAlign
+            view.setUint16(34, bitsPerSample, true); // BitsPerSample
+
+            // data sub-chunk
+            writeString(view, 36, 'data');
+            view.setUint32(40, dataSize, true); // Subchunk2Size
+
+            // Escribir los datos PCM
+            // Asumimos que pcmData es Int16Array para PCM16
+            if (bitsPerSample === 16) {
+                const pcm16 = new Int16Array(pcmData.buffer); // Asegurarse que es Int16Array
+                for (let i = 0; i < pcm16.length; i++) {
+                    view.setInt16(44 + i * 2, pcm16[i], true);
+                }
+            } else if (bitsPerSample === 8) {
+                // Para PCM8 (menos común para la API, pero como ejemplo)
+                const pcm8 = new Uint8Array(pcmData.buffer);
+                 for (let i = 0; i < pcm8.length; i++) {
+                    view.setUint8(44 + i, pcm8[i]);
+                }
+            }
+            // Add other bit depths if needed
+
+            return new Blob([view], { type: 'audio/wav' });
+        }
+
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
+        // --- Fin Funciones Auxiliares ---
+
         const appConfig = {
             data() {
                 return {
@@ -119,22 +208,21 @@
                     currentQuestionIndex: 0,
                     score: 0,
                     userAnswers: [],
-                    selectedAnswer: null, // Para guardar la selección antes de 'siguiente'
-                    isLoading: false,
-                    isReading: false, // Para la función TTS
-                    voices: [], // Almacenar las voces disponibles
-                    topics: {
+                    selectedAnswer: null,
+                    isLoading: false, // General loading state (for Gemini questions)
+                    isReading: false, // Indica si el audio TTS está activo
+                    isLoadingTTS: false, // Estado de carga específico para TTS
+                    currentAudio: null, // Referencia al elemento <audio> actual
+                    topics: { // Contenido de los temas (igual que antes)
                         'edad-media': {
                             title: 'Edad Media',
                             content: `
                                 <div class="prose prose-custom" id="topic-text-edad-media">
-                                    <div class="bg-blue-50 border-l-4 border-blue-400 p-6 rounded-lg mb-8">
-                                        <h3 class="mt-0 text-blue-800">Video Informativo</h3>
-                                        <p class="text-blue-700">Video sobre la Edad Media, Lealtad y Fe.</p>
-                                        <a href="https://github.com/luisonyturbe/historia/raw/main/La_Edad_Media__Lealtad_y_Fe.mov" target="_blank" rel="noopener noreferrer" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-lg transition-colors">
-                                            Ver Video
-                                        </a>
-                                    </div>
+                                    <!-- Reproductor de Video -->
+                                    <video controls preload="metadata">
+                                        <source src="https://github.com/luisonyturbe/historia/raw/main/La_Edad_Media__Lealtad_y_Fe.mov" type="video/mp4">
+                                        Tu navegador no soporta la etiqueta de video. Puedes descargarlo <a href="https://github.com/luisonyturbe/historia/raw/main/La_Edad_Media__Lealtad_y_Fe.mov">aquí</a>.
+                                    </video>
                                     
                                     <h2>Plan de Estudio: La Edad Media</h2>
                                     <p>El material de estudio se divide en cinco módulos principales, cubriendo desde la base económica hasta el legado de este periodo.</p>
@@ -186,13 +274,11 @@
                             title: 'El Feudalismo',
                             content: `
                                 <div class="prose prose-custom" id="topic-text-feudalismo">
-                                    <div class="bg-blue-50 border-l-4 border-blue-400 p-6 rounded-lg mb-8">
-                                        <h3 class="mt-0 text-blue-800">Video Informativo</h3>
-                                        <p class="text-blue-700">Video sobre el sistema feudal.</p>
-                                        <a href="https://github.com/luisonyturbe/historia/raw/main/El_Feudalismo.mov" target="_blank" rel="noopener noreferrer" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-lg transition-colors">
-                                            Ver Video
-                                        </a>
-                                    </div>
+                                     <!-- Reproductor de Video -->
+                                     <video controls preload="metadata">
+                                        <source src="https://github.com/luisonyturbe/historia/raw/main/El_Feudalismo.mov" type="video/mp4">
+                                        Tu navegador no soporta la etiqueta de video. Puedes descargarlo <a href="https://github.com/luisonyturbe/historia/raw/main/El_Feudalismo.mov">aquí</a>.
+                                    </video>
 
                                     <h2>Plan de Estudio: El Feudalismo</h2>
 
@@ -271,13 +357,11 @@
                             title: 'La Iglesia en la Edad Media',
                             content: `
                                 <div class="prose prose-custom" id="topic-text-iglesia">
-                                    <div class="bg-blue-50 border-l-4 border-blue-400 p-6 rounded-lg mb-8">
-                                        <h3 class="mt-0 text-blue-800">Video Informativo</h3>
-                                        <p class="text-blue-700">Video sobre el poder de la Iglesia Medieval.</p>
-                                        <a href="https://github.com/luisonyturbe/historia/raw/main/Poder_de_la_Iglesia_Medieval.mov" target="_blank" rel="noopener noreferrer" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-lg transition-colors">
-                                            Ver Video
-                                        </a>
-                                    </div>
+                                     <!-- Reproductor de Video -->
+                                     <video controls preload="metadata">
+                                        <source src="https://github.com/luisonyturbe/historia/raw/main/Poder_de_la_Iglesia_Medieval.mov" type="video/mp4">
+                                        Tu navegador no soporta la etiqueta de video. Puedes descargarlo <a href="https://github.com/luisonyturbe/historia/raw/main/Poder_de_la_Iglesia_Medieval.mov">aquí</a>.
+                                    </video>
                                     
                                     <h2>Plan de Estudio: La Iglesia Católica en la Edad Media</h2>
                                     
@@ -325,13 +409,11 @@
                             title: 'Las Cruzadas',
                             content: `
                                 <div class="prose prose-custom" id="topic-text-cruzadas">
-                                    <div class="bg-blue-50 border-l-4 border-blue-400 p-6 rounded-lg mb-8">
-                                        <h3 class="mt-0 text-blue-800">Video Informativo</h3>
-                                        <p class="text-blue-700">Video narrado desde la perspectiva de un cruzado.</p>
-                                        <a href="https://github.com/luisonyturbe/historia/raw/main/Las_Cruzadas__Un_Cruzado.mov" target="_blank" rel="noopener noreferrer" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-lg transition-colors">
-                                            Ver Video
-                                        </a>
-                                    </div>
+                                     <!-- Reproductor de Video -->
+                                     <video controls preload="metadata">
+                                        <source src="https://github.com/luisonyturbe/historia/raw/main/Las_Cruzadas__Un_Cruzado.mov" type="video/mp4">
+                                        Tu navegador no soporta la etiqueta de video. Puedes descargarlo <a href="https://github.com/luisonyturbe/historia/raw/main/Las_Cruzadas__Un_Cruzado.mov">aquí</a>.
+                                    </video>
 
                                     <h2>Plan de Estudio: Las Cruzadas (Siglos XI-XIII)</h2>
 
@@ -420,13 +502,11 @@
                             title: 'El Estado Moderno',
                             content: `
                                 <div class="prose prose-custom" id="topic-text-estado-moderno">
-                                    <div class="bg-blue-50 border-l-4 border-blue-400 p-6 rounded-lg mb-8">
-                                        <h3 class="mt-0 text-blue-800">Video Informativo</h3>
-                                        <p class="text-blue-700">Video sobre el surgimiento del Estado Moderno.</p>
-                                        <a href="https://github.com/luisonyturbe/historia/raw/main/Surgimiento_del_Estado_Moderno.mov" target="_blank" rel="noopener noreferrer" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-lg transition-colors">
-                                            Ver Video
-                                        </a>
-                                    </div>
+                                    <!-- Reproductor de Video -->
+                                    <video controls preload="metadata">
+                                        <source src="https://github.com/luisonyturbe/historia/raw/main/Surgimiento_del_Estado_Moderno.mov" type="video/mp4">
+                                        Tu navegador no soporta la etiqueta de video. Puedes descargarlo <a href="https://github.com/luisonyturbe/historia/raw/main/Surgimiento_del_Estado_Moderno.mov">aquí</a>.
+                                    </video>
 
                                     <h2>Plan de Estudio: El Surgimiento del Estado Moderno y el Mercantilismo (Siglos XV-XVIII)</h2>
 
@@ -527,13 +607,11 @@
                             title: 'El Renacimiento',
                             content: `
                                 <div class="prose prose-custom" id="topic-text-renacimiento">
-                                    <div class="bg-blue-50 border-l-4 border-blue-400 p-6 rounded-lg mb-8">
-                                        <h3 class="mt-0 text-blue-800">Video Informativo</h3>
-                                        <p class="text-blue-700">Video sobre El Renacimiento.</p>
-                                        <a href="https://github.com/luisonyturbe/historia/raw/main/El_Renacimiento.mov" target="_blank" rel="noopener noreferrer" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-lg transition-colors">
-                                            Ver Video
-                                        </a>
-                                    </div>
+                                     <!-- Reproductor de Video -->
+                                     <video controls preload="metadata">
+                                        <source src="https://github.com/luisonyturbe/historia/raw/main/El_Renacimiento.mov" type="video/mp4">
+                                        Tu navegador no soporta la etiqueta de video. Puedes descargarlo <a href="https://github.com/luisonyturbe/historia/raw/main/El_Renacimiento.mov">aquí</a>.
+                                    </video>
                                     
                                     <h2>Plan de Estudio: El Renacimiento (Siglos XIV-XVII)</h2>
 
@@ -609,7 +687,7 @@
                             `
                         }
                     },
-                    quizQuestions: {
+                    quizQuestions: { // Preguntas del quiz (igual que antes)
                         'edad-media': [
                             { q: "¿Cuál era el 'corazón de la economía medieval'?", a: ["El comercio", "Los gremios", "La Tierra", "Los castillos"], c: 2 },
                             { q: "¿Qué innovaciones tecnológicas ayudaron a aumentar la producción agrícola?", a: ["La imprenta y el papel", "El arado de vertedera y el molino de agua", "La brújula y el astrolabio", "El acueducto y las carreteras"], c: 1 },
@@ -725,20 +803,45 @@
                         // Modelo actualizado
                         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
                         
-                        const response = await fetch(apiUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        });
-
-                        if (!response.ok) {
-                            throw new Error(`Error en la API: ${response.statusText}`);
+                        // Implementación simple de reintentos con backoff exponencial
+                        let response;
+                        let retries = 0;
+                        const maxRetries = 3;
+                        while (retries < maxRetries) {
+                            try {
+                                response = await fetch(apiUrl, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(payload)
+                                });
+                                if (response.ok) {
+                                    break; // Éxito, salir del bucle
+                                } else if (response.status === 429 || response.status >= 500) {
+                                    // Error 429 (Too Many Requests) o error de servidor (5xx)
+                                    retries++;
+                                    if (retries >= maxRetries) throw new Error(`API error after ${maxRetries} retries: ${response.statusText}`);
+                                    const delay = Math.pow(2, retries) * 1000 + Math.random() * 1000; // 1s, 2s, 4s + jitter
+                                    await new Promise(resolve => setTimeout(resolve, delay));
+                                } else {
+                                    // Otro tipo de error, no reintentar
+                                    throw new Error(`API error: ${response.statusText}`);
+                                }
+                            } catch (networkError) {
+                                retries++;
+                                if (retries >= maxRetries) throw networkError; // Lanzar el error original si se superan los reintentos
+                                const delay = Math.pow(2, retries) * 1000 + Math.random() * 1000;
+                                await new Promise(resolve => setTimeout(resolve, delay));
+                            }
                         }
 
                         const result = await response.json();
                         
                         if (result.candidates && result.candidates[0].content && result.candidates[0].content.parts[0].text) {
                             const newQuestions = JSON.parse(result.candidates[0].content.parts[0].text);
+                            // Validar que sean 5 preguntas
+                             if (!Array.isArray(newQuestions) || newQuestions.length !== 5) {
+                                throw new Error("La API no devolvió 5 preguntas válidas.");
+                            }
                             this.questions = newQuestions.map(q => ({...q, topic: this.quizType}));
                             this.currentQuestionIndex = 0;
                             this.score = 0;
@@ -746,91 +849,185 @@
                             this.selectedAnswer = null;
                             this.currentPage = 'quiz-active';
                         } else {
-                            throw new Error("No se pudieron generar nuevas preguntas.");
+                             // Intentar obtener texto de error si existe
+                            const errorText = result?.promptFeedback?.blockReason || result?.candidates?.[0]?.finishReason || "Respuesta inesperada de la API.";
+                            console.error("API Response:", result); // Log para depuración
+                            throw new Error(`No se pudieron generar nuevas preguntas. Razón: ${errorText}`);
                         }
 
                     } catch (error) {
                         console.error("Error generando nuevas preguntas:", error);
-                        alert("Lo sentimos, no pudimos generar nuevas preguntas en este momento. Por favor, inténtalo de nuevo.");
+                        alert(`Lo sentimos, no pudimos generar nuevas preguntas en este momento. Error: ${error.message}. Por favor, inténtalo de nuevo.`);
                     } finally {
                         this.isLoading = false;
                         this.renderPage();
                     }
                 },
 
-                // Lógica TTS actualizada para buscar voz en español
-                loadVoices() {
-                    this.voices = window.speechSynthesis.getVoices();
+                // ---- NUEVA LÓGICA TTS con API de Gemini ----
+                stopTTS() {
+                    if (this.currentAudio) {
+                        this.currentAudio.pause();
+                        this.currentAudio.currentTime = 0; // Reiniciar
+                        this.currentAudio = null;
+                    }
+                    // Limpiar URL de objeto si existe
+                    const existingAudioElement = document.getElementById('tts-player');
+                    if (existingAudioElement && existingAudioElement.src.startsWith('blob:')) {
+                        URL.revokeObjectURL(existingAudioElement.src);
+                    }
+                     // Quitar el reproductor visual
+                    const playerContainer = document.getElementById('tts-audio-player');
+                    if (playerContainer) playerContainer.style.display = 'none';
+
+                    this.isReading = false;
+                    this.isLoadingTTS = false; // Asegurarse de resetear loading
+                    this.renderPage(); // Actualizar botón
                 },
-                
-                toggleReading() {
-                    if (!('speechSynthesis' in window)) {
-                        alert('Lo sentimos, tu navegador no soporta la lectura de texto.');
+
+                async readWithGeminiTTS() {
+                    // Si ya está sonando o cargando, detener
+                    if (this.isReading || this.isLoadingTTS) {
+                        this.stopTTS();
                         return;
                     }
 
-                    // Si ya está hablando, cancelar
-                    if (this.isReading) {
-                        window.speechSynthesis.cancel();
-                        this.isReading = false;
-                        this.renderPage();
-                        return;
-                    }
-                    
-                    // Obtener el texto del tema actual
+                    // Obtener texto
                     const topicTextElement = document.getElementById(`topic-text-${this.currentTopic}`);
                     if (!topicTextElement) return;
-
-                    const textToRead = topicTextElement.innerText;
-                    const utterance = new SpeechSynthesisUtterance(textToRead);
-
-                    // --- INICIO DE LA LÓGICA DE VOZ MEJORADA ---
-                    
-                    // Priorizar voces: 'es-MX', luego 'es-ES', luego cualquier 'es'
-                    const spanishVoice = 
-                        this.voices.find(voice => voice.lang === 'es-MX') || 
-                        this.voices.find(voice => voice.lang === 'es-ES') || 
-                        this.voices.find(voice => voice.lang.startsWith('es-'));
-
-                    if (spanishVoice) {
-                        utterance.voice = spanishVoice;
-                        utterance.lang = spanishVoice.lang;
-                    } else {
-                        // Fallback si no se encuentra ninguna voz específica
-                        utterance.lang = 'es-ES'; 
-                        console.warn("No se encontró una voz TTS en español. Usando la voz predeterminada del navegador para 'es'.");
+                    const textToRead = topicTextElement.innerText.trim();
+                    if (!textToRead) {
+                        alert("No hay texto para leer en esta sección.");
+                        return;
                     }
-                    // --- FIN DE LA LÓGICA DE VOZ ---
 
-                    utterance.onstart = () => {
-                        this.isReading = true;
-                        this.renderPage(); // Actualizar botón a "Detener"
-                    };
+                    this.isLoadingTTS = true;
+                    this.renderPage(); // Mostrar estado 'Cargando...'
 
-                    utterance.onend = () => {
-                        this.isReading = false;
-                        this.renderPage(); // Actualizar botón a "Leer..."
-                    };
-                    
-                    utterance.onerror = (event) => {
-                        console.error('Error en SpeechSynthesisUtterance:', event);
-                        if (event.error === 'language-unavailable') {
-                            alert('No se pudo encontrar una voz en español en tu navegador. La lectura podría no funcionar o sonar incorrecta.');
+                    try {
+                        const payload = {
+                            contents: [{
+                                parts: [{ text: `Lee el siguiente texto en español mexicano de forma clara y natural: ${textToRead}` }] // Instrucción más natural
+                            }],
+                            generationConfig: {
+                                responseModalities: ["AUDIO"],
+                                speechConfig: {
+                                    voiceConfig: {
+                                        // Voces recomendadas para español (puedes probar otras)
+                                        // 'Sadachbia' (Lively), 'Sadaltager' (Knowledgeable), 'Sulafat' (Warm)
+                                        prebuiltVoiceConfig: { voiceName: "Sadachbia" } 
+                                    }
+                                }
+                            },
+                            model: "gemini-2.5-flash-preview-tts" // Asegurar el modelo correcto
+                        };
+                        const apiKey = ""; // Dejar vacío
+                        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+
+                        // Reintentos con backoff para la API TTS
+                        let response;
+                        let retries = 0;
+                        const maxRetries = 3;
+                         while (retries < maxRetries) {
+                            try {
+                                response = await fetch(apiUrl, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(payload)
+                                });
+                                if (response.ok) break;
+                                if (response.status === 429 || response.status >= 500) {
+                                    retries++;
+                                    if (retries >= maxRetries) throw new Error(`Error API TTS ${response.status} tras ${maxRetries} reintentos`);
+                                    const delay = Math.pow(2, retries) * 1000 + Math.random() * 1000;
+                                    await new Promise(resolve => setTimeout(resolve, delay));
+                                } else {
+                                    throw new Error(`Error API TTS: ${response.statusText}`);
+                                }
+                            } catch (networkError) {
+                                 retries++;
+                                if (retries >= maxRetries) throw networkError;
+                                const delay = Math.pow(2, retries) * 1000 + Math.random() * 1000;
+                                await new Promise(resolve => setTimeout(resolve, delay));
+                            }
                         }
+
+                        const result = await response.json();
+                        const part = result?.candidates?.[0]?.content?.parts?.[0];
+                        const audioData = part?.inlineData?.data;
+                        const mimeType = part?.inlineData?.mimeType; // Ej: "audio/L16;rate=24000"
+
+                        if (audioData && mimeType && mimeType.startsWith("audio/")) {
+                            const sampleRateMatch = mimeType.match(/rate=(\d+)/);
+                            if (!sampleRateMatch) throw new Error("No se pudo extraer el sample rate del mimeType: " + mimeType);
+                            const sampleRate = parseInt(sampleRateMatch[1], 10);
+
+                            const pcmDataBuffer = base64ToArrayBuffer(audioData);
+                            // La API devuelve signed PCM16
+                            const pcm16 = new Int16Array(pcmDataBuffer);
+                            const wavBlob = pcmToWav(pcm16, sampleRate);
+                            const audioUrl = URL.createObjectURL(wavBlob);
+
+                             // Crear o reutilizar el elemento audio
+                            const playerContainer = document.getElementById('tts-audio-player');
+                            let audioElement = document.getElementById('tts-player');
+                             if (!audioElement) {
+                                audioElement = document.createElement('audio');
+                                audioElement.id = 'tts-player';
+                                audioElement.controls = true; // Mostrar controles
+                                playerContainer.appendChild(audioElement);
+                            } else if (audioElement.src.startsWith('blob:')) {
+                                // Limpiar URL anterior si existe
+                                URL.revokeObjectURL(audioElement.src);
+                            }
+                            
+                            audioElement.src = audioUrl;
+                            playerContainer.style.display = 'block'; // Mostrar reproductor
+
+                            this.currentAudio = audioElement; // Guardar referencia
+
+                            audioElement.onplay = () => {
+                                this.isReading = true;
+                                this.isLoadingTTS = false; // Termina la carga al empezar a reproducir
+                                this.renderPage();
+                            };
+                            audioElement.onpause = () => { // Manejar pausa manual
+                                if (audioElement.currentTime !== audioElement.duration) { // No resetear si terminó naturalmente
+                                     this.stopTTS(); // Usar stopTTS para resetear todo
+                                }
+                            };
+                            audioElement.onended = () => {
+                                this.stopTTS(); // Limpia todo al terminar
+                            };
+                            audioElement.onerror = (e) => {
+                                console.error('Error al reproducir audio:', e);
+                                alert("Hubo un error al intentar reproducir el audio.");
+                                this.stopTTS();
+                            };
+
+                            audioElement.play();
+
+                        } else {
+                            const errorReason = result?.promptFeedback?.blockReason || result?.candidates?.[0]?.finishReason || "Respuesta inválida de la API TTS.";
+                             console.error("API TTS Response:", result); // Log para depuración
+                            throw new Error(`No se recibió audio válido. Razón: ${errorReason}`);
+                        }
+
+                    } catch (error) {
+                        console.error('Error en readWithGeminiTTS:', error);
+                        alert(`Error al generar la lectura: ${error.message}`);
+                        this.isLoadingTTS = false;
                         this.isReading = false;
                         this.renderPage();
-                    };
-
-                    window.speechSynthesis.speak(utterance);
-                },
-                
-                // --- Renderizado de Páginas ---
-                navigate(page, topic = null) {
-                    // Detener cualquier lectura al navegar
-                    if ('speechSynthesis' in window) {
-                        window.speechSynthesis.cancel();
                     }
+                },
+                // ---- FIN NUEVA LÓGICA TTS ----
+                
+                // --- Renderizado de Páginas (sin cambios aquí) ---
+                navigate(page, topic = null) {
+                    this.stopTTS(); // Detener audio al navegar
                     this.isReading = false;
+                    this.isLoadingTTS = false;
 
                     this.currentPage = page;
                     this.currentTopic = topic;
@@ -838,10 +1035,9 @@
                     this.renderPage();
                 },
                 startQuiz(type) {
-                     if ('speechSynthesis' in window) {
-                        window.speechSynthesis.cancel();
-                    }
+                     this.stopTTS(); // Detener audio al iniciar quiz
                     this.isReading = false;
+                     this.isLoadingTTS = false;
                     
                     this.quizType = type;
                     this.currentQuestionIndex = 0;
@@ -989,10 +1185,12 @@
                     const newQuestionsBtn = document.getElementById('new-questions-btn');
                     if(newQuestionsBtn) newQuestionsBtn.addEventListener('click', () => window.app.generateNewQuestions()); // Usar window.app
                     
+                    // --- Listener actualizado para TTS ---
                     const ttsBtn = document.getElementById('tts-btn');
-                    if (ttsBtn) ttsBtn.addEventListener('click', () => window.app.toggleReading()); // Usar window.app
+                    if (ttsBtn) ttsBtn.addEventListener('click', () => window.app.readWithGeminiTTS()); // Usar window.app
+                    // --- Fin Listener actualizado ---
                 },
-                HomePage() {
+                HomePage() { // Sin cambios
                     let topicCards = '';
                     for (const key in this.topics) {
                         topicCards += `
@@ -1024,13 +1222,27 @@
                         </div>
                     `;
                 },
-                TopicPage() {
+                TopicPage() { // Actualizado para mostrar estado de carga TTS
                     const topic = this.topics[this.currentTopic];
-                    const ttsButtonText = this.isReading ? `
-                        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        Detener Lectura` : `
-                        <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.636 5.636a9 9 0 0112.728 0m-12.728 0l12.728 12.728"></path></svg>
-                        Leer Texto (IA)`;
+                    let ttsButtonContent;
+
+                    if (this.isLoadingTTS) {
+                        ttsButtonContent = `
+                            <div class="tts-loading-spinner"></div>
+                            Cargando...`;
+                    } else if (this.isReading) {
+                        ttsButtonContent = `
+                            <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            Detener Lectura`;
+                    } else {
+                         ttsButtonContent = `
+                            <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.636 5.636a9 9 0 0112.728 0m-12.728 0l12.728 12.728"></path></svg>
+                            Leer Texto (IA)`;
+                    }
+
+                    const buttonClasses = this.isLoadingTTS 
+                        ? 'bg-yellow-500 hover:bg-yellow-600 cursor-wait' 
+                        : (this.isReading ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600');
 
                     return `
                         <div class="min-h-screen bg-white pb-24">
@@ -1046,14 +1258,14 @@
                                 ${topic.content}
                             </main>
                             <div id="tts-container" class="fixed bottom-5 right-5 z-20">
-                                <button id="tts-btn" class="flex items-center justify-center ${this.isReading ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'} text-white font-bold py-3 px-4 rounded-full shadow-lg transition-transform transform hover:scale-105">
-                                    ${ttsButtonText}
+                                <button id="tts-btn" class="flex items-center justify-center ${buttonClasses} text-white font-bold py-3 px-4 rounded-full shadow-lg transition-colors duration-200" ${this.isLoadingTTS ? 'disabled' : ''}>
+                                    ${ttsButtonContent}
                                 </button>
                             </div>
                         </div>
                     `;
                 },
-                QuizPage() {
+                QuizPage() { // Sin cambios
                     let quizOptions = '';
                     for (const key in this.topics) {
                          quizOptions += `
@@ -1082,7 +1294,7 @@
                         </div>
                     `;
                 },
-                QuizActivePage() {
+                QuizActivePage() { // Sin cambios
                      const question = this.questions[this.currentQuestionIndex];
                      let optionsHtml = '';
                      question.a.forEach((option, index) => {
@@ -1122,7 +1334,7 @@
                         </div>
                     `;
                 },
-                QuizResultsPage() {
+                QuizResultsPage() { // Sin cambios
                     let resultsHtml = '';
                     this.userAnswers.forEach(answer => {
                         resultsHtml += `
@@ -1170,18 +1382,10 @@
                     `;
                 }
             },
-            mounted() {
+            mounted() { // Modificado para quitar la carga inicial de voces del navegador
                 // Función de autoinvocación para montar la app
                 this.renderPage();
-                
-                // Cargar las voces de TTS
-                if ('speechSynthesis' in window) {
-                    this.loadVoices();
-                    // Algunos navegadores cargan las voces de forma asíncrona
-                    if (window.speechSynthesis.onvoiceschanged !== undefined) {
-                        window.speechSynthesis.onvoiceschanged = () => this.loadVoices();
-                    }
-                }
+                // Ya no cargamos las voces de speechSynthesis aquí
             }
         };
 
@@ -1195,45 +1399,54 @@
                 app[methodName] = config.methods[methodName].bind(app);
             }
             // Asignar al objeto global para que los event listeners puedan encontrarlo
-            window.app = app; 
+            window.app = app;
             // Llamar a mounted
             config.mounted.call(app);
 
-            // Re-definir addEventListeners para usar el 'window.app'
-            // Esto es un hack para un SPA sin un framework real
+             // Re-definir addEventListeners para usar el 'window.app'
             app.addEventListeners = function() {
                 document.querySelectorAll('[data-navigate]').forEach(el => {
-                    el.addEventListener('click', (e) => {
+                    el.removeEventListener('click', app.handleNavigate); // Remover listener anterior si existe
+                    el.addEventListener('click', app.handleNavigate = (e) => { // Guardar referencia
                         const page = e.currentTarget.getAttribute('data-navigate');
                         const topic = e.currentTarget.getAttribute('data-topic');
                         window.app.navigate(page, topic);
                     });
                 });
                  document.querySelectorAll('[data-quiz-start]').forEach(el => {
-                    el.addEventListener('click', (e) => {
+                    el.removeEventListener('click', app.handleQuizStart);
+                    el.addEventListener('click', app.handleQuizStart = (e) => {
                         const type = e.currentTarget.getAttribute('data-quiz-start');
                         window.app.startQuiz(type);
                     });
                 });
                 document.querySelectorAll('[data-answer]').forEach(el => {
-                    el.addEventListener('click', (e) => {
+                     el.removeEventListener('click', app.handleSelectAnswer);
+                    el.addEventListener('click', app.handleSelectAnswer = (e) => {
                         const choiceIndex = parseInt(e.currentTarget.getAttribute('data-answer'));
                         window.app.selectAnswer(choiceIndex);
                     });
                 });
                 const nextBtn = document.getElementById('next-question-btn');
                 if (nextBtn) {
-                    nextBtn.addEventListener('click', () => window.app.nextQuestion());
+                     nextBtn.removeEventListener('click', app.handleNextQuestion);
+                    nextBtn.addEventListener('click', app.handleNextQuestion = () => window.app.nextQuestion());
                 }
                 const newQuestionsBtn = document.getElementById('new-questions-btn');
-                if(newQuestionsBtn) newQuestionsBtn.addEventListener('click', () => window.app.generateNewQuestions());
-                
+                if(newQuestionsBtn) {
+                    newQuestionsBtn.removeEventListener('click', app.handleNewQuestions);
+                    newQuestionsBtn.addEventListener('click', app.handleNewQuestions = () => window.app.generateNewQuestions());
+                }
+
                 const ttsBtn = document.getElementById('tts-btn');
-                if (ttsBtn) ttsBtn.addEventListener('click', () => window.app.toggleReading());
+                if (ttsBtn) {
+                    ttsBtn.removeEventListener('click', app.handleTTS);
+                    ttsBtn.addEventListener('click', app.handleTTS = () => window.app.readWithGeminiTTS());
+                }
             };
-            
+
             // Re-renderizar después de la configuración inicial para asegurar que los listeners
-            // de 'window.app' estén disponibles.
+            // de 'window.app' estén disponibles y remover los antiguos.
             app.renderPage();
 
         })(appConfig);
