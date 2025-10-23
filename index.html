@@ -110,7 +110,7 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             margin-bottom: 2rem; /* Espacio después del video */
         }
-         /* Estilo para botón de carga TTS */
+         /* Estilo para botón de carga TTS (ya no se usa, pero se deja por si acaso) */
         .tts-loading-spinner {
             border: 2px solid rgba(255, 255, 255, 0.3);
             border-top-color: #fff;
@@ -131,72 +131,16 @@
         <!-- Las páginas se renderizarán aquí -->
     </div>
 
-    <!-- Contenedor para el reproductor de audio TTS -->
-    <div id="tts-audio-player" class="fixed bottom-20 right-5 z-10" style="display: none;"></div>
+    <!-- Ya no se necesita el contenedor de audio separado -->
+    <!-- <div id="tts-audio-player" class="fixed bottom-20 right-5 z-10" style="display: none;"></div> -->
 
     <script>
-        // --- Funciones Auxiliares para Audio ---
-        function base64ToArrayBuffer(base64) {
-            const binaryString = window.atob(base64);
-            const len = binaryString.length;
-            const bytes = new Uint8Array(len);
-            for (let i = 0; i < len; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
-            return bytes.buffer;
-        }
-
-        // Modificado para aceptar Int16Array directamente
-        function pcmToWav(pcmInt16Data, sampleRate, numChannels = 1, bitsPerSample = 16) {
-             if (!(pcmInt16Data instanceof Int16Array)) {
-                 console.error("pcmToWav expected Int16Array, received:", typeof pcmInt16Data);
-                 // Intentar convertir si es ArrayBuffer, si no, lanzar error
-                 if (pcmInt16Data instanceof ArrayBuffer) {
-                     pcmInt16Data = new Int16Array(pcmInt16Data);
-                 } else {
-                    throw new Error("Invalid data type passed to pcmToWav. Expected Int16Array.");
-                 }
-            }
-            
-            const blockAlign = numChannels * bitsPerSample / 8;
-            const byteRate = sampleRate * blockAlign;
-            // Calcular dataSize basado en la longitud del Int16Array
-            const dataSize = pcmInt16Data.length * (bitsPerSample / 8); 
-            const buffer = new ArrayBuffer(44 + dataSize); // 44 bytes para el header WAV
-            const view = new DataView(buffer);
-
-            // RIFF chunk descriptor
-            writeString(view, 0, 'RIFF');
-            view.setUint32(4, 36 + dataSize, true); // ChunkSize
-            writeString(view, 8, 'WAVE');
-
-            // fmt sub-chunk
-            writeString(view, 12, 'fmt ');
-            view.setUint32(16, 16, true); // Subchunk1Size (16 for PCM)
-            view.setUint16(20, 1, true); // AudioFormat (1 for PCM)
-            view.setUint16(22, numChannels, true); // NumChannels
-            view.setUint32(24, sampleRate, true); // SampleRate
-            view.setUint32(28, byteRate, true); // ByteRate
-            view.setUint16(32, blockAlign, true); // BlockAlign
-            view.setUint16(34, bitsPerSample, true); // BitsPerSample
-
-            // data sub-chunk
-            writeString(view, 36, 'data');
-            view.setUint32(40, dataSize, true); // Subchunk2Size
-
-            // Escribir los datos PCM (Int16)
-            for (let i = 0; i < pcmInt16Data.length; i++) {
-                view.setInt16(44 + i * 2, pcmInt16Data[i], true);
-            }
-
-            return new Blob([view], { type: 'audio/wav' });
-        }
-
-        function writeString(view, offset, string) {
-            for (let i = 0; i < string.length; i++) {
-                view.setUint8(offset + i, string.charCodeAt(i));
-            }
-        }
+        // --- Funciones Auxiliares para Audio (Ya no se necesitan para TTS del navegador) ---
+        /*
+        function base64ToArrayBuffer(base64) { ... }
+        function pcmToWav(pcmInt16Data, sampleRate, numChannels = 1, bitsPerSample = 16) { ... }
+        function writeString(view, offset, string) { ... }
+        */
         // --- Fin Funciones Auxiliares ---
 
         const appConfig = {
@@ -211,9 +155,10 @@
                     userAnswers: [],
                     selectedAnswer: null,
                     isLoading: false, // General loading state (for Gemini questions)
-                    isReading: false, // Indica si el audio TTS está activo
-                    isLoadingTTS: false, // Estado de carga específico para TTS
-                    currentAudio: null, // Referencia al elemento <audio> actual
+                    isReading: false, // Indica si el audio TTS del navegador está activo
+                    voices: [], // Almacenar las voces disponibles para speechSynthesis
+                    // isLoadingTTS: false, // Ya no es necesario
+                    // currentAudio: null, // Ya no es necesario
                     topics: { // Contenido de los temas (igual que antes)
                         'edad-media': {
                             title: 'Edad Media',
@@ -865,20 +810,20 @@
                     }
                 },
 
-                // ---- NUEVA LÓGICA TTS con API de Gemini ----
+                // ---- LÓGICA TTS con API de Gemini (con correcciones) ----
                 stopTTS() {
                     if (this.currentAudio) {
                         this.currentAudio.pause();
                         this.currentAudio.currentTime = 0; // Reiniciar
+                        // Limpiar URL de objeto ANTES de poner currentAudio a null
+                        if (this.currentAudio.src.startsWith('blob:')) {
+                            URL.revokeObjectURL(this.currentAudio.src);
+                            console.log("URL de objeto TTS revocada."); // Log
+                        }
                         this.currentAudio = null;
                         console.log("Audio detenido y referencia limpiada."); // Log
                     }
-                    // Limpiar URL de objeto si existe
-                    const existingAudioElement = document.getElementById('tts-player');
-                    if (existingAudioElement && existingAudioElement.src.startsWith('blob:')) {
-                        URL.revokeObjectURL(existingAudioElement.src);
-                        console.log("URL de objeto TTS revocada."); // Log
-                    }
+
                      // Quitar el reproductor visual
                     const playerContainer = document.getElementById('tts-audio-player');
                     if (playerContainer) playerContainer.style.display = 'none';
@@ -904,7 +849,8 @@
                         console.error("Elemento de texto del tema no encontrado:", `topic-text-${this.currentTopic}`);
                         return;
                     }
-                    const textToRead = topicTextElement.innerText.trim();
+                    // Limpiar un poco el texto (ej. quitar múltiples espacios)
+                    const textToRead = topicTextElement.innerText.trim().replace(/\s+/g, ' '); 
                      console.log("Texto a leer (primeros 100 chars):", textToRead.substring(0, 100)); // Log del texto
                     if (!textToRead) {
                         alert("No hay texto para leer en esta sección.");
@@ -917,20 +863,25 @@
                     try {
                         const payload = {
                             contents: [{
-                                parts: [{ text: `Lee el siguiente texto en español mexicano de forma clara y natural: ${textToRead}` }] // Instrucción más natural
+                                // Simplificado, la instrucción de idioma/naturalidad puede no ser necesaria
+                                // si la voz seleccionada ya implica el idioma deseado.
+                                parts: [{ text: textToRead }] 
                             }],
                             generationConfig: {
                                 responseModalities: ["AUDIO"],
                                 speechConfig: {
                                     voiceConfig: {
+                                        // Asegurarse que 'Sadachbia' es una voz válida para español
                                         prebuiltVoiceConfig: { voiceName: "Sadachbia" } 
                                     }
                                 }
                             },
-                            model: "gemini-2.5-flash-preview-tts" 
+                            // No es necesario especificar 'model' aquí si la URL ya lo tiene
+                            // model: "gemini-2.5-flash-preview-tts" 
                         };
                         const apiKey = ""; // Dejar vacío
-                        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+                        // Usar la URL base correcta sin ':generateContent' duplicado si ya está en la URL
+                        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`; 
                         
                         console.log("Enviando a API TTS:", JSON.stringify(payload, null, 2)); // Log del payload formateado
 
@@ -947,28 +898,40 @@
                                     body: JSON.stringify(payload)
                                 });
                                 console.log(`Intento TTS ${retries + 1} - Estado: ${response.status}`); // Log de estado
-                                if (response.ok) break; // Éxito
-
-                                // Intentar leer el cuerpo del error ANTES de reintentar o lanzar
-                                try {
-                                    responseBodyForError = await response.text();
-                                    console.error(`Intento TTS ${retries + 1} - Error Body:`, responseBodyForError);
-                                } catch (e) {
-                                    responseBodyForError = `No se pudo leer el cuerpo del error (Status: ${response.status})`;
+                                
+                                // Intentar leer el cuerpo del error en todos los casos no OK
+                                if (!response.ok) {
+                                     try {
+                                        responseBodyForError = await response.text(); // Leer como texto
+                                        console.error(`Intento TTS ${retries + 1} - Error Body (${response.status}):`, responseBodyForError);
+                                    } catch (e) {
+                                        responseBodyForError = `No se pudo leer el cuerpo del error (Status: ${response.status})`;
+                                        console.error(responseBodyForError);
+                                    }
+                                } else {
+                                     break; // Éxito
                                 }
 
-                                if (response.status === 429 || response.status >= 500) {
+                                if (response.status === 403) {
+                                     // Error 403 específico - Permisos
+                                     throw new Error(`Error API TTS: 403 Forbidden. Verifica los permisos de la API Key para el modelo TTS.`);
+                                } else if (response.status === 429 || response.status >= 500) {
+                                     // Errores reintentables
                                     retries++;
                                     if (retries >= maxRetries) throw new Error(`Error API TTS ${response.status} tras ${maxRetries} reintentos`);
                                     const delay = Math.pow(2, retries) * 1000 + Math.random() * 1000;
                                     console.log(`Reintentando TTS en ${delay}ms...`);
                                     await new Promise(resolve => setTimeout(resolve, delay));
                                 } else {
-                                    // Error no reintentable
-                                    throw new Error(`Error API TTS: ${response.status} ${response.statusText}`);
+                                    // Otro error no reintentable
+                                    throw new Error(`Error API TTS: ${response.status} ${response.statusText}. Body: ${responseBodyForError}`);
                                 }
                             } catch (networkError) {
                                  console.error(`Intento TTS ${retries + 1} - Error de red:`, networkError);
+                                 // Si el error ya es el 403 específico, no reintentar más
+                                 if (networkError.message.includes("403 Forbidden")) {
+                                     throw networkError;
+                                 }
                                  retries++;
                                 if (retries >= maxRetries) throw networkError; // Lanzar error original si se superan reintentos
                                 const delay = Math.pow(2, retries) * 1000 + Math.random() * 1000;
@@ -977,17 +940,24 @@
                             }
                         }
 
-                        // Si response no es OK después de reintentos, lanzar error con el cuerpo si se pudo leer
+                        // Si response no es OK después de reintentos, lanzar error (ya tiene el body si se pudo leer)
                         if (!response.ok) {
-                            throw new Error(`Error API TTS: ${response.status} ${response.statusText}. Body: ${responseBodyForError}`);
+                             throw new Error(`Error API TTS: ${response.status} ${response.statusText}. Body: ${responseBodyForError}`);
                         }
 
                         const result = await response.json();
                         console.log("Respuesta API TTS completa:", JSON.stringify(result, null, 2)); // Log de la respuesta completa formateada
 
                         const part = result?.candidates?.[0]?.content?.parts?.[0];
-                        const audioData = part?.inlineData?.data;
-                        const mimeType = part?.inlineData?.mimeType; // Ej: "audio/L16;rate=24000"
+                        // Verificar si la 'part' contiene 'inlineData'
+                        if (!part || !part.inlineData) {
+                             const errorReason = result?.promptFeedback?.blockReason || result?.candidates?.[0]?.finishReason || "La respuesta de la API no contiene datos de audio ('inlineData').";
+                             console.error("Respuesta API TTS sin inlineData:", result);
+                             throw new Error(`Error en formato de respuesta TTS: ${errorReason}`);
+                        }
+
+                        const audioData = part.inlineData.data;
+                        const mimeType = part.inlineData.mimeType; // Ej: "audio/L16;rate=24000"
 
                         if (audioData && mimeType && mimeType.startsWith("audio/")) {
                             console.log("Audio recibido, procesando...");
@@ -1014,15 +984,25 @@
                                 audioElement.controls = true; // Mostrar controles
                                 playerContainer.appendChild(audioElement);
                                 console.log("Elemento <audio> creado.");
-                            } else if (audioElement.src.startsWith('blob:')) {
-                                URL.revokeObjectURL(audioElement.src);
-                                console.log("URL de objeto anterior revocada.");
+                            } else {
+                                // Detener y limpiar URL anterior SIEMPRE antes de asignar una nueva
+                                if (!audioElement.paused) audioElement.pause();
+                                if (audioElement.src.startsWith('blob:')) {
+                                     URL.revokeObjectURL(audioElement.src);
+                                     console.log("URL de objeto anterior revocada antes de asignar nueva.");
+                                }
                             }
                             
                             audioElement.src = audioUrl;
                             playerContainer.style.display = 'block'; // Mostrar reproductor
 
                             this.currentAudio = audioElement; // Guardar referencia
+
+                            // Resetear listeners para evitar duplicados si se reutiliza el elemento
+                            audioElement.onplay = null;
+                            audioElement.onpause = null;
+                            audioElement.onended = null;
+                            audioElement.onerror = null;
 
                             audioElement.onplay = () => {
                                 console.log("Audio onplay");
@@ -1057,20 +1037,22 @@
 
 
                         } else {
-                            const errorReason = result?.promptFeedback?.blockReason || result?.candidates?.[0]?.finishReason || "Respuesta inválida de la API TTS (sin datos de audio).";
-                             console.error("API TTS Response (sin audio):", result); // Log para depuración
-                            throw new Error(`No se recibió audio válido. Razón: ${errorReason}`);
+                             // Este caso ahora debería ser capturado por la verificación de 'inlineData' arriba
+                            const errorReason = "Respuesta inválida de la API TTS (sin datos de audio correctos).";
+                             console.error("API TTS Response (sin audio/mimeType):", result);
+                            throw new Error(errorReason);
                         }
 
                     } catch (error) {
-                        console.error('Error en readWithGeminiTTS:', error);
+                        console.error('Error detallado en readWithGeminiTTS:', error); // Log más detallado
+                        // Mostrar el mensaje de error específico en la alerta
                         alert(`Error al generar la lectura: ${error.message}`);
-                        this.isLoadingTTS = false;
+                        this.isLoadingTTS = false; // Asegurar resetear estado
                         this.isReading = false;
-                        this.renderPage();
+                        this.renderPage(); // Actualizar UI
                     }
                 },
-                // ---- FIN NUEVA LÓGICA TTS ----
+                // ---- FIN LÓGICA TTS ----
                 
                 // --- Renderizado de Páginas (sin cambios aquí) ---
                 navigate(page, topic = null) {
@@ -1203,41 +1185,66 @@
                      this.addEventListeners();
                 },
                 addEventListeners() {
-                    // Navegación estándar
-                    document.querySelectorAll('[data-navigate]').forEach(el => {
-                        el.addEventListener('click', (e) => {
-                            const page = e.currentTarget.getAttribute('data-navigate');
-                            const topic = e.currentTarget.getAttribute('data-topic');
-                            window.app.navigate(page, topic); // Usar window.app
+                     // Prevenir duplicados removiendo listeners antes de añadir
+                    const removeAndAdd = (selector, event, handlerKey, handlerFn) => {
+                         document.querySelectorAll(selector).forEach(el => {
+                            // Intentar remover usando una propiedad guardada en el elemento
+                            const oldHandler = el[`__${handlerKey}`];
+                            if (oldHandler) {
+                                el.removeEventListener(event, oldHandler);
+                            }
+                            // Añadir el nuevo listener y guardar referencia en el elemento
+                            el.addEventListener(event, handlerFn);
+                            el[`__${handlerKey}`] = handlerFn;
                         });
+                    };
+                    
+                    removeAndAdd('[data-navigate]', 'click', 'handleNavigate', (e) => {
+                        const page = e.currentTarget.getAttribute('data-navigate');
+                        const topic = e.currentTarget.getAttribute('data-topic');
+                        window.app.navigate(page, topic);
                     });
-                    // Empezar Quiz
-                     document.querySelectorAll('[data-quiz-start]').forEach(el => {
-                        el.addEventListener('click', (e) => {
-                            const type = e.currentTarget.getAttribute('data-quiz-start');
-                            window.app.startQuiz(type); // Usar window.app
-                        });
+
+                    removeAndAdd('[data-quiz-start]', 'click', 'handleQuizStart', (e) => {
+                        const type = e.currentTarget.getAttribute('data-quiz-start');
+                        window.app.startQuiz(type);
                     });
-                    // Seleccionar respuesta de Quiz
-                    document.querySelectorAll('[data-answer]').forEach(el => {
-                        el.addEventListener('click', (e) => {
-                            const choiceIndex = parseInt(e.currentTarget.getAttribute('data-answer'));
-                            window.app.selectAnswer(choiceIndex); // Usar window.app
-                        });
+
+                    removeAndAdd('[data-answer]', 'click', 'handleSelectAnswer', (e) => {
+                         const choiceIndex = parseInt(e.currentTarget.getAttribute('data-answer'));
+                        window.app.selectAnswer(choiceIndex);
                     });
-                    // Siguiente pregunta
+
+                    // Para botones únicos, podemos usar el ID
                     const nextBtn = document.getElementById('next-question-btn');
                     if (nextBtn) {
-                        nextBtn.addEventListener('click', () => window.app.nextQuestion()); // Usar window.app
+                         const handlerKey = 'handleNextQuestion';
+                         const oldHandler = nextBtn[`__${handlerKey}`];
+                         if (oldHandler) nextBtn.removeEventListener('click', oldHandler);
+                         const newHandler = () => window.app.nextQuestion();
+                         nextBtn.addEventListener('click', newHandler);
+                         nextBtn[`__${handlerKey}`] = newHandler;
                     }
-                    // Funciones de IA
+
                     const newQuestionsBtn = document.getElementById('new-questions-btn');
-                    if(newQuestionsBtn) newQuestionsBtn.addEventListener('click', () => window.app.generateNewQuestions()); // Usar window.app
-                    
-                    // --- Listener actualizado para TTS ---
+                    if(newQuestionsBtn) {
+                         const handlerKey = 'handleNewQuestions';
+                         const oldHandler = newQuestionsBtn[`__${handlerKey}`];
+                         if (oldHandler) newQuestionsBtn.removeEventListener('click', oldHandler);
+                         const newHandler = () => window.app.generateNewQuestions();
+                         newQuestionsBtn.addEventListener('click', newHandler);
+                         newQuestionsBtn[`__${handlerKey}`] = newHandler;
+                    }
+
                     const ttsBtn = document.getElementById('tts-btn');
-                    if (ttsBtn) ttsBtn.addEventListener('click', () => window.app.readWithGeminiTTS()); // Usar window.app
-                    // --- Fin Listener actualizado ---
+                    if (ttsBtn) {
+                        const handlerKey = 'handleTTS';
+                        const oldHandler = ttsBtn[`__${handlerKey}`];
+                        if (oldHandler) ttsBtn.removeEventListener('click', oldHandler);
+                        const newHandler = () => window.app.readWithGeminiTTS();
+                        ttsBtn.addEventListener('click', newHandler);
+                        ttsBtn[`__${handlerKey}`] = newHandler;
+                    }
                 },
                 HomePage() { // Sin cambios
                     let topicCards = '';
@@ -1271,7 +1278,7 @@
                         </div>
                     `;
                 },
-                TopicPage() { // Actualizado para mostrar estado de carga TTS
+                TopicPage() { // Sin cambios visuales respecto a la versión anterior
                     const topic = this.topics[this.currentTopic];
                     let ttsButtonContent;
 
@@ -1431,10 +1438,8 @@
                     `;
                 }
             },
-            mounted() { // Modificado para quitar la carga inicial de voces del navegador
-                // Función de autoinvocación para montar la app
+            mounted() { // Sin cambios
                 this.renderPage();
-                // Ya no cargamos las voces de speechSynthesis aquí
             }
         };
 
@@ -1452,7 +1457,7 @@
             // Llamar a mounted
             config.mounted.call(app);
 
-             // Re-definir addEventListeners para usar el 'window.app'
+             // Re-definir addEventListeners para usar el 'window.app' y evitar duplicados
             app.addEventListeners = function() {
                  // Prevenir duplicados removiendo listeners antes de añadir
                 const removeAndAdd = (selector, event, handlerKey, handlerFn) => {
@@ -1515,7 +1520,6 @@
                     ttsBtn[`__${handlerKey}`] = newHandler;
                 }
             };
-
 
             // Re-renderizar después de la configuración inicial
             app.renderPage();
