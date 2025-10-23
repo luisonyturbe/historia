@@ -146,10 +146,22 @@
             return bytes.buffer;
         }
 
-        function pcmToWav(pcmData, sampleRate, numChannels = 1, bitsPerSample = 16) {
+        // Modificado para aceptar Int16Array directamente
+        function pcmToWav(pcmInt16Data, sampleRate, numChannels = 1, bitsPerSample = 16) {
+             if (!(pcmInt16Data instanceof Int16Array)) {
+                 console.error("pcmToWav expected Int16Array, received:", typeof pcmInt16Data);
+                 // Intentar convertir si es ArrayBuffer, si no, lanzar error
+                 if (pcmInt16Data instanceof ArrayBuffer) {
+                     pcmInt16Data = new Int16Array(pcmInt16Data);
+                 } else {
+                    throw new Error("Invalid data type passed to pcmToWav. Expected Int16Array.");
+                 }
+            }
+            
             const blockAlign = numChannels * bitsPerSample / 8;
             const byteRate = sampleRate * blockAlign;
-            const dataSize = pcmData.length * (bitsPerSample / 8);
+            // Calcular dataSize basado en la longitud del Int16Array
+            const dataSize = pcmInt16Data.length * (bitsPerSample / 8); 
             const buffer = new ArrayBuffer(44 + dataSize); // 44 bytes para el header WAV
             const view = new DataView(buffer);
 
@@ -172,21 +184,10 @@
             writeString(view, 36, 'data');
             view.setUint32(40, dataSize, true); // Subchunk2Size
 
-            // Escribir los datos PCM
-            // Asumimos que pcmData es Int16Array para PCM16
-            if (bitsPerSample === 16) {
-                const pcm16 = new Int16Array(pcmData.buffer); // Asegurarse que es Int16Array
-                for (let i = 0; i < pcm16.length; i++) {
-                    view.setInt16(44 + i * 2, pcm16[i], true);
-                }
-            } else if (bitsPerSample === 8) {
-                // Para PCM8 (menos común para la API, pero como ejemplo)
-                const pcm8 = new Uint8Array(pcmData.buffer);
-                 for (let i = 0; i < pcm8.length; i++) {
-                    view.setUint8(44 + i, pcm8[i]);
-                }
+            // Escribir los datos PCM (Int16)
+            for (let i = 0; i < pcmInt16Data.length; i++) {
+                view.setInt16(44 + i * 2, pcmInt16Data[i], true);
             }
-            // Add other bit depths if needed
 
             return new Blob([view], { type: 'audio/wav' });
         }
@@ -306,7 +307,7 @@
                                             <tr>
                                                 <td><strong>Rey / Monarca</strong></td>
                                                 <td>Cúspide del sistema y persona con más poder.</td>
-                                                <td>Consideraba todas las tierras de Inglaterra (u otros reinos) como su propiedad personal.</td>
+                                                <td>Consideraba todas las terras de Inglaterra (u otros reinos) como su propiedad personal.</td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Nobleza / Señores</strong></td>
@@ -381,7 +382,7 @@
                                     <p>El poder del Papa era tal que podía <strong>excomulgar a los reyes</strong> que desafiaran su autoridad, dejándolos fuera de la ley. El clero actuaba como colaborador directo.</p>
 
                                     <h3>II. Poder Económico de la Iglesia</h3>
-                                    <p><strong>Riqueza y Propiedad de la Tierra:</strong> Durante la Edad Media, la Iglesia Católica recibió <strong>vastas tierras</strong> concedidas por reyes y terratenientes. Recibió grandes ingresos que la hicieron extremadamente rica, aumentando su poder e influencia.</p>
+                                    <p><strong>Riqueza y Propiedad de la Tierra:</strong> Durante la Edad Media, la Iglesia Católica recibió <strong>vastas terras</strong> concedidas por reyes y terratenientes. Recibió grandes ingresos que la hicieron extremadamente rica, aumentando su poder e influencia.</p>
                                     <p><strong>El Rol de los Monasterios:</strong> Los monasterios eran <strong>grandes propietarios de tierras</strong>. Los campesinos trabajaban en ellas y pagaban rentas. Generaban riqueza con la producción de vino, cerveza, queso y otros alimentos.</p>
 
                                     <h3>III. Rol Social y Cultural</h3>
@@ -431,7 +432,7 @@
                                     <p><strong>Motivaciones Diversas:</strong></p>
                                     <ul>
                                         <li>Fe y devoción religiosa.</li>
-                                        <li>Búsqueda de <strong>riquezas, tierras o fama</strong>.</li>
+                                        <li>Búsqueda de <strong>riquezas, terras o fama</strong>.</li>
                                         <li>Deseo de escapar de la pobreza.</li>
                                         <li>Oportunidad para jóvenes caballeros de <strong>mostrar su valor</strong>.</li>
                                     </ul>
@@ -451,7 +452,7 @@
                                                 <td><strong>Primera Cruzada</strong></td>
                                                 <td>1096</td>
                                                 <td>Godofredo de Bouillón, Raimundo de Tolosa, Bohemundo de Tarento.</td>
-                                                <td><strong>Conquista de Jerusalén en 1099</strong> y fundación de reinos cristianos en Tierra Santa.</td>
+                                                <td><strong>Conquista de Jerusalén en 1099</strong> y fundación de reinos cristianos en Terra Santa.</td>
                                             </tr>
                                             <tr>
                                                 <td><strong>Batalla de Cuernos de Hattin</strong></td>
@@ -655,7 +656,7 @@
                                     <p>El Renacimiento promovió un enfoque basado en la <strong>observación, la experiencia y la razón</strong>.</p>
                                     <h4>Astronomía:</h4>
                                     <ul>
-                                        <li><strong>Nicolás Copérnico:</strong> Formuló la <strong>teoría heliocéntrica</strong> (la Tierra gira alrededor del Sol).</li>
+                                        <li><strong>Nicolás Copérnico:</strong> Formuló la <strong>teoría heliocéntrica</strong> (la Terra gira alrededor del Sol).</li>
                                         <li><strong>Galileo Galilei:</strong> Padre de la ciencia experimental. Mejoró el telescopio y defendió el heliocentrismo, entrando en <strong>conflicto con la Iglesia</strong>.</li>
                                     </ul>
                                     <h4>Medicina:</h4>
@@ -689,10 +690,10 @@
                     },
                     quizQuestions: { // Preguntas del quiz (igual que antes)
                         'edad-media': [
-                            { q: "¿Cuál era el 'corazón de la economía medieval'?", a: ["El comercio", "Los gremios", "La Tierra", "Los castillos"], c: 2 },
+                            { q: "¿Cuál era el 'corazón de la economía medieval'?", a: ["El comercio", "Los gremios", "La Terra", "Los castillos"], c: 2 },
                             { q: "¿Qué innovaciones tecnológicas ayudaron a aumentar la producción agrícola?", a: ["La imprenta y el papel", "El arado de vertedera y el molino de agua", "La brújula y el astrolabio", "El acueducto y las carreteras"], c: 1 },
                             { q: "¿Cómo se llamaban las agrupaciones de artesanos que regulaban la calidad y el precio?", a: ["Sindicatos", "Feudos", "Vasallos", "Gremios"], c: 3 },
-                            { q: "En el sistema feudal, ¿quiénes eran la gran mayoría de la población y estaban 'atados a la tierra'?", a: ["Los vasallos", "Los siervos", "Los caballeros", "El clero"], c: 1 },
+                            { q: "En el sistema feudal, ¿quiénes eran la gran mayoría de la población y estaban 'atados a la Terra'?", a: ["Los vasallos", "Los siervos", "Los caballeros", "El clero"], c: 1 },
                             { q: "¿Qué institución tenía una 'autoridad inmensa', incluso por encima de los reyes?", a: ["Los gremios", "La universidad", "La Iglesia Católica", "El senado"], c: 2 },
                             { q: "¿Qué Papa convocó a Las Cruzadas a finales del siglo XI?", a: ["Papa Francisco", "Papa Juan Pablo II", "Papa Urbano II", "Papa Alejo I"], c: 2 },
                             { q: "¿En qué tipo de vivienda vivía la nobleza?", a: ["Chozas de paja", "Monasterios", "Casas gremiales", "Castillos"], c: 3 },
@@ -702,7 +703,7 @@
                         ],
                         'feudalismo': [
                             { q: "¿En qué siglos (aproximadamente) estuvo vigente el feudalismo?", a: ["V al VIII", "VIII al IX", "X al XIII", "XIV al XV"], c: 2 },
-                            { q: "¿Cómo se llamaban las unidades de tierra que se distribuían?", a: ["Benefice", "Reinos", "Provincias", "Feudos"], c: 3 },
+                            { q: "¿Cómo se llamaban las unidades de Terra que se distribuían?", a: ["Benefice", "Reinos", "Provincias", "Feudos"], c: 3 },
                             { q: "Una de las causas del surgimiento del feudalismo fue la inseguridad por las invasiones de...", a: ["Romanos y griegos", "Mongoles y persas", "Vikingos y eslavos", "Españoles y portugueses"], c: 2 },
                             { q: "¿Quién estaba en la cúspide de la pirámide feudal?", a: ["El Papa", "El Señor Feudal", "El Rey / Monarca", "El Caballero"], c: 2 },
                             { q: "¿Qué estamento 'no privilegiado' constituía la gran mayoría de la población?", a: ["Clero", "Nobleza", "Vasallos", "Campesinos / Siervos"], c: 3 },
@@ -717,7 +718,7 @@
                             { q: "¿Quién era el líder máximo de la Iglesia Católica?", a: ["El Arzobispo", "El Rey", "El Papa", "El Monje"], c: 2 },
                             { q: "¿Qué poder tenía el Papa sobre los reyes que desafiaban su autoridad?", a: ["Nombrarlos", "Cobrarles impuestos", "Enviarlos a la guerra", "Excomulgarlos"], c: 3 },
                             { q: "La alianza con los Francos resultó en la formación de...", a: ["El Imperio Carolingio", "Los Estados Pontificios", "Las Universidades", "Las Órdenes Religiosas"], c: 1 },
-                            { q: "¿Cuál era una fuente principal de la riqueza económica de la Iglesia?", a: ["El comercio de especias", "La posesión de vastas tierras", "La industria textil", "Los impuestos reales"], c: 1 },
+                            { q: "¿Cuál era una fuente principal de la riqueza económica de la Iglesia?", a: ["El comercio de especias", "La posesión de vastas terras", "La industria textil", "Los impuestos reales"], c: 1 },
                             { q: "¿Dónde surgieron las primeras escuelas y centros de bibliotecas de Europa?", a: ["En los castillos", "En los gremios", "En los monasterios", "En los palacios reales"], c: 2 },
                             { q: "¿Qué orden religiosa se dedicaba a la enseñanza y a combatir las herejías?", a: ["Franciscanos", "Dominicos", "Cistercienses", "Benedictinos"], c: 1 },
                             { q: "¿Qué orden religiosa vivía en pobreza y ayudaba a los pobres en las ciudades?", a: ["Franciscanos", "Dominicos", "Cistercienses", "Agustinos"], c: 0 },
@@ -729,7 +730,7 @@
                             { q: "¿Qué Papa convocó a los cristianos a la Primera Cruzada?", a: ["Alejo I Comneno", "Saladino", "Papa Urbano II", "Ricardo Corazón de León"], c: 2 },
                             { q: "¿Cuál era el objetivo primario de Las Cruzadas?", a: ["Conquistar Constantinopla", "Rescatar los Lugares Santos y Jerusalén", "Comerciar con China", "Detener a los vikingos"], c: 1 },
                             { q: "¿Qué pueblo había tomado Jerusalén en el año 1070?", a: ["Los turcos selyúcidas", "Los bizantinos", "Los francos", "Los persas"], c: 0 },
-                            { q: "¿Qué incentivo religioso se prometía a los participantes?", a: ["Riquezas y tierras", "Títulos nobiliarios", "El perdón de sus pecados", "Poder político"], c: 2 },
+                            { q: "¿Qué incentivo religioso se prometía a los participantes?", a: ["Riquezas y terras", "Títulos nobiliarios", "El perdón de sus pecados", "Poder político"], c: 2 },
                             { q: "¿Qué líder musulmán unió a su pueblo y recuperó Jerusalén en 1187?", a: ["Alejo I", "Godofredo de Bouillón", "Saladino", "Bohemundo de Tarento"], c: 2 },
                             { q: "¿Qué rey inglés participó en la Tercera Cruzada y logró una tregua?", a: ["Rey Arturo", "Ricardo Corazón de León", "Rey Juan", "Rey Luis IX"], c: 1 },
                             { q: "¿Qué ciudad cristiana saquearon los cruzados en la Cuarta Cruzada (1204)?", a: ["Roma", "Antioquía", "Acre", "Constantinopla"], c: 3 },
@@ -744,7 +745,7 @@
                             { q: "En una Monarquía Parlamentaria, el rey...", a: ["Tiene poder absoluto", "No existe", "No gobierna de forma absoluta", "Es elegido por el Papa"], c: 2 },
                             { q: "Ciudades como Venecia y Florencia, gobernadas por familias poderosas, se organizaron como:", a: ["Monarquías Absolutas", "Feudos", "Ciudades-Estado", "Imperios"], c: 2 },
                             { q: "¿Qué doctrina económica buscaba fortalecer al Estado mediante la acumulación de riqueza?", a: ["Capitalismo", "Feudalismo", "Socialismo", "Mercantilismo"], c: 3 },
-                            { q: "Según el mercantilismo, la base del poder económico nacional era la acumulación de...", a: ["Tierras", "Metales preciosos (oro y plata)", "Ejércitos", "Cultura"], c: 1 },
+                            { q: "Según el mercantilismo, la base del poder económico nacional era la acumulación de...", a: ["Terras", "Metales preciosos (oro y plata)", "Ejércitos", "Cultura"], c: 1 },
                             { q: "El mercantilismo promovía la 'Intervención Estatal' para maximizar las...", a: ["Importaciones", "Exportaciones", "Alianzas", "Colonias"], c: 1 },
                             { q: "¿En qué siglo comenzó el 'declive del mercantilismo'?", a: ["Siglo XV", "Siglo XVI", "Siglo XVII", "Siglo XVIII"], c: 3 }
                         ],
@@ -756,7 +757,7 @@
                             { q: "¿Qué artista es conocido por pintar la 'Mona Lisa' y 'La Última Cena'?", a: ["Miguel Ángel", "Rafael Sanzio", "Leonardo da Vinci", "Donatello"], c: 2 },
                             { q: "¿Quién pintó los frescos de la Capilla Sixtina y esculpió el 'David'?", a: ["Miguel Ángel", "Rafael Sanzio", "Leonardo da Vinci", "Tiziano"], c: 0 },
                             { q: "Artista que representó la 'armonía y la claridad' en obras como 'La Escuela de Atenas':", a: ["Miguel Ángel", "Rafael Sanzio", "Leonardo da Vinci", "Boticelli"], c: 1 },
-                            { q: "¿Qué científico formuló la 'teoría heliocéntrica' (la Tierra gira alrededor del Sol)?", a: ["Galileo Galilei", "Nicolás Copérnico", "Andreas Vesalio", "Johannes Gutenberg"], c: 1 },
+                            { q: "¿Qué científico formuló la 'teoría heliocéntrica' (la Terra gira alrededor del Sol)?", a: ["Galileo Galilei", "Nicolás Copérnico", "Andreas Vesalio", "Johannes Gutenberg"], c: 1 },
                             { q: "¿Quién inventó la 'imprenta de tipos móviles'?", a: ["Galileo Galilei", "Nicolás Copérnico", "Andreas Vesalio", "Johannes Gutenberg"], c: 3 },
                             { q: "¿Quién escribió 'Don Quijote de la Mancha', considerada la primera novela moderna?", a: ["William Shakespeare", "Nicolás Maquiavelo", "Miguel de Cervantes Saavedra", "Dante Alighieri"], c: 2 }
                         ]
@@ -870,11 +871,13 @@
                         this.currentAudio.pause();
                         this.currentAudio.currentTime = 0; // Reiniciar
                         this.currentAudio = null;
+                        console.log("Audio detenido y referencia limpiada."); // Log
                     }
                     // Limpiar URL de objeto si existe
                     const existingAudioElement = document.getElementById('tts-player');
                     if (existingAudioElement && existingAudioElement.src.startsWith('blob:')) {
                         URL.revokeObjectURL(existingAudioElement.src);
+                        console.log("URL de objeto TTS revocada."); // Log
                     }
                      // Quitar el reproductor visual
                     const playerContainer = document.getElementById('tts-audio-player');
@@ -883,19 +886,26 @@
                     this.isReading = false;
                     this.isLoadingTTS = false; // Asegurarse de resetear loading
                     this.renderPage(); // Actualizar botón
+                    console.log("Estados TTS reseteados."); // Log
                 },
 
                 async readWithGeminiTTS() {
+                    console.log("readWithGeminiTTS llamado. isReading:", this.isReading, "isLoadingTTS:", this.isLoadingTTS); // Log inicial
                     // Si ya está sonando o cargando, detener
                     if (this.isReading || this.isLoadingTTS) {
+                        console.log("Llamando a stopTTS() desde readWithGeminiTTS."); // Log
                         this.stopTTS();
                         return;
                     }
 
                     // Obtener texto
                     const topicTextElement = document.getElementById(`topic-text-${this.currentTopic}`);
-                    if (!topicTextElement) return;
+                    if (!topicTextElement) {
+                        console.error("Elemento de texto del tema no encontrado:", `topic-text-${this.currentTopic}`);
+                        return;
+                    }
                     const textToRead = topicTextElement.innerText.trim();
+                     console.log("Texto a leer (primeros 100 chars):", textToRead.substring(0, 100)); // Log del texto
                     if (!textToRead) {
                         alert("No hay texto para leer en esta sección.");
                         return;
@@ -913,19 +923,20 @@
                                 responseModalities: ["AUDIO"],
                                 speechConfig: {
                                     voiceConfig: {
-                                        // Voces recomendadas para español (puedes probar otras)
-                                        // 'Sadachbia' (Lively), 'Sadaltager' (Knowledgeable), 'Sulafat' (Warm)
                                         prebuiltVoiceConfig: { voiceName: "Sadachbia" } 
                                     }
                                 }
                             },
-                            model: "gemini-2.5-flash-preview-tts" // Asegurar el modelo correcto
+                            model: "gemini-2.5-flash-preview-tts" 
                         };
                         const apiKey = ""; // Dejar vacío
                         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+                        
+                        console.log("Enviando a API TTS:", JSON.stringify(payload, null, 2)); // Log del payload formateado
 
                         // Reintentos con backoff para la API TTS
                         let response;
+                        let responseBodyForError = "N/A"; // Variable para guardar cuerpo en caso de error
                         let retries = 0;
                         const maxRetries = 3;
                          while (retries < maxRetries) {
@@ -935,37 +946,63 @@
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify(payload)
                                 });
-                                if (response.ok) break;
+                                console.log(`Intento TTS ${retries + 1} - Estado: ${response.status}`); // Log de estado
+                                if (response.ok) break; // Éxito
+
+                                // Intentar leer el cuerpo del error ANTES de reintentar o lanzar
+                                try {
+                                    responseBodyForError = await response.text();
+                                    console.error(`Intento TTS ${retries + 1} - Error Body:`, responseBodyForError);
+                                } catch (e) {
+                                    responseBodyForError = `No se pudo leer el cuerpo del error (Status: ${response.status})`;
+                                }
+
                                 if (response.status === 429 || response.status >= 500) {
                                     retries++;
                                     if (retries >= maxRetries) throw new Error(`Error API TTS ${response.status} tras ${maxRetries} reintentos`);
                                     const delay = Math.pow(2, retries) * 1000 + Math.random() * 1000;
+                                    console.log(`Reintentando TTS en ${delay}ms...`);
                                     await new Promise(resolve => setTimeout(resolve, delay));
                                 } else {
-                                    throw new Error(`Error API TTS: ${response.statusText}`);
+                                    // Error no reintentable
+                                    throw new Error(`Error API TTS: ${response.status} ${response.statusText}`);
                                 }
                             } catch (networkError) {
+                                 console.error(`Intento TTS ${retries + 1} - Error de red:`, networkError);
                                  retries++;
-                                if (retries >= maxRetries) throw networkError;
+                                if (retries >= maxRetries) throw networkError; // Lanzar error original si se superan reintentos
                                 const delay = Math.pow(2, retries) * 1000 + Math.random() * 1000;
+                                console.log(`Reintentando TTS en ${delay}ms...`);
                                 await new Promise(resolve => setTimeout(resolve, delay));
                             }
                         }
 
+                        // Si response no es OK después de reintentos, lanzar error con el cuerpo si se pudo leer
+                        if (!response.ok) {
+                            throw new Error(`Error API TTS: ${response.status} ${response.statusText}. Body: ${responseBodyForError}`);
+                        }
+
                         const result = await response.json();
+                        console.log("Respuesta API TTS completa:", JSON.stringify(result, null, 2)); // Log de la respuesta completa formateada
+
                         const part = result?.candidates?.[0]?.content?.parts?.[0];
                         const audioData = part?.inlineData?.data;
                         const mimeType = part?.inlineData?.mimeType; // Ej: "audio/L16;rate=24000"
 
                         if (audioData && mimeType && mimeType.startsWith("audio/")) {
+                            console.log("Audio recibido, procesando...");
                             const sampleRateMatch = mimeType.match(/rate=(\d+)/);
                             if (!sampleRateMatch) throw new Error("No se pudo extraer el sample rate del mimeType: " + mimeType);
                             const sampleRate = parseInt(sampleRateMatch[1], 10);
+                            console.log("Sample Rate:", sampleRate);
 
                             const pcmDataBuffer = base64ToArrayBuffer(audioData);
-                            // La API devuelve signed PCM16
-                            const pcm16 = new Int16Array(pcmDataBuffer);
-                            const wavBlob = pcmToWav(pcm16, sampleRate);
+                            const pcm16 = new Int16Array(pcmDataBuffer); // Crear Int16Array aquí
+                            console.log("PCM16 data length:", pcm16.length);
+
+                            // Pasar Int16Array directamente
+                            const wavBlob = pcmToWav(pcm16, sampleRate); 
+                            console.log("WAV Blob creado, tamaño:", wavBlob.size);
                             const audioUrl = URL.createObjectURL(wavBlob);
 
                              // Crear o reutilizar el elemento audio
@@ -976,9 +1013,10 @@
                                 audioElement.id = 'tts-player';
                                 audioElement.controls = true; // Mostrar controles
                                 playerContainer.appendChild(audioElement);
+                                console.log("Elemento <audio> creado.");
                             } else if (audioElement.src.startsWith('blob:')) {
-                                // Limpiar URL anterior si existe
                                 URL.revokeObjectURL(audioElement.src);
+                                console.log("URL de objeto anterior revocada.");
                             }
                             
                             audioElement.src = audioUrl;
@@ -987,29 +1025,40 @@
                             this.currentAudio = audioElement; // Guardar referencia
 
                             audioElement.onplay = () => {
+                                console.log("Audio onplay");
                                 this.isReading = true;
-                                this.isLoadingTTS = false; // Termina la carga al empezar a reproducir
+                                this.isLoadingTTS = false; 
                                 this.renderPage();
                             };
-                            audioElement.onpause = () => { // Manejar pausa manual
-                                if (audioElement.currentTime !== audioElement.duration) { // No resetear si terminó naturalmente
-                                     this.stopTTS(); // Usar stopTTS para resetear todo
+                             audioElement.onpause = () => {
+                                console.log("Audio onpause - currentTime:", audioElement.currentTime, "duration:", audioElement.duration);
+                                // Solo detener si no ha terminado Y no está ya en proceso de detenerse
+                                if (this.isReading && audioElement.currentTime < audioElement.duration - 0.1) { 
+                                    console.log("Pausa manual detectada, llamando a stopTTS.");
+                                    this.stopTTS(); 
                                 }
                             };
                             audioElement.onended = () => {
+                                console.log("Audio onended, llamando a stopTTS.");
                                 this.stopTTS(); // Limpia todo al terminar
                             };
                             audioElement.onerror = (e) => {
-                                console.error('Error al reproducir audio:', e);
+                                console.error('Error del elemento <audio>:', e);
                                 alert("Hubo un error al intentar reproducir el audio.");
                                 this.stopTTS();
                             };
+                            
+                            console.log("Intentando reproducir audio...");
+                            audioElement.play().catch(e => { 
+                                console.error("Error al iniciar la reproducción:", e);
+                                alert("Error al iniciar la reproducción. Es posible que necesites interactuar con la página primero.");
+                                this.stopTTS();
+                            });
 
-                            audioElement.play();
 
                         } else {
-                            const errorReason = result?.promptFeedback?.blockReason || result?.candidates?.[0]?.finishReason || "Respuesta inválida de la API TTS.";
-                             console.error("API TTS Response:", result); // Log para depuración
+                            const errorReason = result?.promptFeedback?.blockReason || result?.candidates?.[0]?.finishReason || "Respuesta inválida de la API TTS (sin datos de audio).";
+                             console.error("API TTS Response (sin audio):", result); // Log para depuración
                             throw new Error(`No se recibió audio válido. Razón: ${errorReason}`);
                         }
 
@@ -1405,48 +1454,70 @@
 
              // Re-definir addEventListeners para usar el 'window.app'
             app.addEventListeners = function() {
-                document.querySelectorAll('[data-navigate]').forEach(el => {
-                    el.removeEventListener('click', app.handleNavigate); // Remover listener anterior si existe
-                    el.addEventListener('click', app.handleNavigate = (e) => { // Guardar referencia
-                        const page = e.currentTarget.getAttribute('data-navigate');
-                        const topic = e.currentTarget.getAttribute('data-topic');
-                        window.app.navigate(page, topic);
+                 // Prevenir duplicados removiendo listeners antes de añadir
+                const removeAndAdd = (selector, event, handlerKey, handlerFn) => {
+                     document.querySelectorAll(selector).forEach(el => {
+                        // Intentar remover usando una propiedad guardada en el elemento
+                        const oldHandler = el[`__${handlerKey}`];
+                        if (oldHandler) {
+                            el.removeEventListener(event, oldHandler);
+                        }
+                        // Añadir el nuevo listener y guardar referencia en el elemento
+                        el.addEventListener(event, handlerFn);
+                        el[`__${handlerKey}`] = handlerFn;
                     });
+                };
+                
+                removeAndAdd('[data-navigate]', 'click', 'handleNavigate', (e) => {
+                    const page = e.currentTarget.getAttribute('data-navigate');
+                    const topic = e.currentTarget.getAttribute('data-topic');
+                    window.app.navigate(page, topic);
                 });
-                 document.querySelectorAll('[data-quiz-start]').forEach(el => {
-                    el.removeEventListener('click', app.handleQuizStart);
-                    el.addEventListener('click', app.handleQuizStart = (e) => {
-                        const type = e.currentTarget.getAttribute('data-quiz-start');
-                        window.app.startQuiz(type);
-                    });
+
+                removeAndAdd('[data-quiz-start]', 'click', 'handleQuizStart', (e) => {
+                    const type = e.currentTarget.getAttribute('data-quiz-start');
+                    window.app.startQuiz(type);
                 });
-                document.querySelectorAll('[data-answer]').forEach(el => {
-                     el.removeEventListener('click', app.handleSelectAnswer);
-                    el.addEventListener('click', app.handleSelectAnswer = (e) => {
-                        const choiceIndex = parseInt(e.currentTarget.getAttribute('data-answer'));
-                        window.app.selectAnswer(choiceIndex);
-                    });
+
+                removeAndAdd('[data-answer]', 'click', 'handleSelectAnswer', (e) => {
+                     const choiceIndex = parseInt(e.currentTarget.getAttribute('data-answer'));
+                    window.app.selectAnswer(choiceIndex);
                 });
+
+                // Para botones únicos, podemos usar el ID
                 const nextBtn = document.getElementById('next-question-btn');
                 if (nextBtn) {
-                     nextBtn.removeEventListener('click', app.handleNextQuestion);
-                    nextBtn.addEventListener('click', app.handleNextQuestion = () => window.app.nextQuestion());
+                     const handlerKey = 'handleNextQuestion';
+                     const oldHandler = nextBtn[`__${handlerKey}`];
+                     if (oldHandler) nextBtn.removeEventListener('click', oldHandler);
+                     const newHandler = () => window.app.nextQuestion();
+                     nextBtn.addEventListener('click', newHandler);
+                     nextBtn[`__${handlerKey}`] = newHandler;
                 }
+
                 const newQuestionsBtn = document.getElementById('new-questions-btn');
                 if(newQuestionsBtn) {
-                    newQuestionsBtn.removeEventListener('click', app.handleNewQuestions);
-                    newQuestionsBtn.addEventListener('click', app.handleNewQuestions = () => window.app.generateNewQuestions());
+                     const handlerKey = 'handleNewQuestions';
+                     const oldHandler = newQuestionsBtn[`__${handlerKey}`];
+                     if (oldHandler) newQuestionsBtn.removeEventListener('click', oldHandler);
+                     const newHandler = () => window.app.generateNewQuestions();
+                     newQuestionsBtn.addEventListener('click', newHandler);
+                     newQuestionsBtn[`__${handlerKey}`] = newHandler;
                 }
 
                 const ttsBtn = document.getElementById('tts-btn');
                 if (ttsBtn) {
-                    ttsBtn.removeEventListener('click', app.handleTTS);
-                    ttsBtn.addEventListener('click', app.handleTTS = () => window.app.readWithGeminiTTS());
+                    const handlerKey = 'handleTTS';
+                    const oldHandler = ttsBtn[`__${handlerKey}`];
+                    if (oldHandler) ttsBtn.removeEventListener('click', oldHandler);
+                    const newHandler = () => window.app.readWithGeminiTTS();
+                    ttsBtn.addEventListener('click', newHandler);
+                    ttsBtn[`__${handlerKey}`] = newHandler;
                 }
             };
 
-            // Re-renderizar después de la configuración inicial para asegurar que los listeners
-            // de 'window.app' estén disponibles y remover los antiguos.
+
+            // Re-renderizar después de la configuración inicial
             app.renderPage();
 
         })(appConfig);
